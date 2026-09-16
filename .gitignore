@@ -1,0 +1,22 @@
+# entorno virtual
+.venv/
+
+# datos de mercado (nunca se versionan; se conserva la carpeta vacia)
+datos/*
+!datos/.gitkeep
+
+# salidas de experimentos (se regeneran corriendo el codigo)
+resultados/*
+!resultados/.gitkeep
+
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# sistema y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
