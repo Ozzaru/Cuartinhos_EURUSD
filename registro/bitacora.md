@@ -81,6 +81,43 @@ simulados). NO se descargan ni se miran datos reales en esta etapa.
    fecha de Londres y los pools se arman solo con minutos validos segun las
    reglas de este proyecto.
 
+### Decisiones de metodo fijadas (no llevan POR DECIDIR, pero se pre-registran)
+
+Estas van al pre-registro del punto F aunque el grupo no tenga que votarlas:
+son elecciones de metodo, no parametros libres.
+
+- `NULA_DECILES_VOL = 10`: la nula empareja por decil de volatilidad, o sea 10
+  grupos. Con menos grupos el emparejamiento seria mas grueso; con mas, algunos
+  grupos quedarian sin candidatos suficientes para sortear.
+- `TIPO_ERRORES = "cluster"`: los errores estandar se agrupan por fecha de
+  Londres, porque los eventos del mismo dia comparten shocks. Newey-West queda
+  como alternativa de robustez, no como especificacion principal.
+- `RW_REPETICIONES = 1000`: remuestreos de dias del bootstrap de Romano-Wolf.
+
+### Ajuste posterior al cierre del punto A (mismo dia)
+
+- **pandas bajado de 3.0.5 a 2.2.3** y fijado en `requirements.txt`. Motivo:
+  pandas 3 cambio la resolucion por defecto de las fechas y aqui un error de
+  unidades de tiempo pasaria en silencio. `pip check` no reporta ningun
+  conflicto y el resto de las versiones fijas quedan igual. pandas 2.2 arrastra
+  `pytz`, que tambien quedo fijado.
+- **Hallazgo de compatibilidad**: con pandas 2.2.3 + numpy 2.5.3, la operacion
+  `indice + pd.Timedelta(minutes=1)` da el resultado correcto pero levanta un
+  DeprecationWarning de numpy desde dentro de pandas. No afecta al motor,
+  porque toda la aritmetica de tiempo se hace en enteros de nanosegundos. Queda
+  anotado en el docstring de `motor/tiempo.py`: donde haga falta la API de
+  pandas, se usa `pd.to_timedelta(n, unit="m")`.
+- **Nuevo modulo `motor/tiempo.py`**: unica puerta de conversion de fechas
+  (`a_ns`, `de_ns`, `cierre_ns`, `a_zona`, `a_utc`). Regla del proyecto:
+  ningun otro modulo convierte tiempos a mano. `cierre_ns` es la regla de
+  causalidad escrita como codigo.
+- **`tests/test_tiempo.py`**: 9 pruebas. Nanosegundos enteros con el valor
+  exacto de una fecha calculada aparte, paso de un minuto = 60.000.000.000 ns,
+  cierre de una barra = apertura de la siguiente, ida y vuelta fecha <-> ns,
+  error si la fecha no trae zona, e ida y vuelta UTC <-> Londres identica en
+  verano, invierno y los dos dias de cambio de horario de 2020.
+- El `.docx` de la propuesta se movio a `docs/` y sigue versionado.
+
 ### Pendientes al cerrar el punto A
 
 - Los 16 parametros marcados `# POR DECIDIR` en `config.py` (lista completa en
@@ -88,9 +125,11 @@ simulados). NO se descargan ni se miran datos reales en esta etapa.
 - Verificar en el punto B las dos consecuencias esperadas de la decision 1
   (domingo [18,24) y lunes [0,6) sin eventos) y el horizonte `fin_franja`
   cortado por el cierre del viernes.
-- `pandas 3.0.5` es una version mayor reciente. Los tests del punto B tienen
-  que confirmar que el manejo de zonas horarias y de `resample` se comporta
-  como se espera; si aparece algun roce, se evalua bajar a la serie 2.x.
+- Para el **punto E**: el piloto tiene que medir tiempo **y memoria** por
+  mercado. El numero de procesos en paralelo se limita para no pasar del ~70%
+  de la RAM disponible (procesos = min(nucleos, RAM_disponible * 0.70 /
+  memoria_por_mercado)). Sin ese tope, 13 anos de minutos por proceso llenan la
+  memoria y el sistema empieza a usar disco.
 
 ### Siguiente
 

@@ -1,6 +1,10 @@
 # Versiones fijas: una tesis tiene que poder reproducirse tal cual.
 # Instaladas y verificadas el 2026-09-16 con Python 3.13.2 en Windows 11.
-pandas==3.0.5
+#
+# pandas queda en la serie 2.2 a proposito: pandas 3 cambio, entre otras cosas,
+# la resolucion por defecto de las fechas, y aqui un error de unidades de
+# tiempo pasaria en silencio. Ver tests/test_tiempo.py.
+pandas==2.2.3
 numpy==2.5.3
 scipy==1.18.1
 statsmodels==0.15.0
@@ -8,3 +12,4 @@ pyarrow==25.0.1
 matplotlib==3.11.2
 pytest==9.1.1
 tzdata==2026.4
+pytz==2026.3.post1   # dependencia de pandas 2.2; se fija para que el entorno sea identico
