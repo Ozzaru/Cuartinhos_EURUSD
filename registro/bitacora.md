@@ -15,7 +15,7 @@ simulados). NO se descargan ni se miran datos reales en esta etapa.
 ## Punto de control A — Estructura y configuracion
 
 - **Fecha**: 2026-09-16
-- **Commit**: pendiente (se completa en el commit siguiente)
+- **Commit**: `c915dfa` (`punto A: estructura del proyecto y configuracion`)
 - **Tests**: `pytest` -> 5 pasan, 0 fallan (pruebas de humo de `config.py`).
 
 ### Que se hizo
