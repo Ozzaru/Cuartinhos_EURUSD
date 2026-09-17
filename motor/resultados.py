@@ -148,15 +148,9 @@ def agregar_retornos(barras, cal, eventos, cfg):
     """
     Agrega una columna de retorno normalizado por cada horizonte.
 
-        ret_h = direccion * (ln P(t+h) - ln P(t)) / (sigma_ref * raiz(h))
-
-    Queda NaN si falta el precio en alguna punta, si sigma_ref no existe, o si
-    t+h cruza un cierre de mercado (el horizonte tendria dentro un fin de semana
-    entero, que no es lo que se quiere medir).
-
-    El horizonte "fin_franja" llega hasta el fin de la franja del evento o hasta
-    la ultima barra antes del cierre de mercado, lo que ocurra primero. Por eso
-    una ruptura del viernes por la tarde mide solo hasta el cierre.
+    Es una envoltura de `calcular_retornos` para la tabla de eventos. La
+    hipotesis nula usa el MISMO nucleo sobre instantes sorteados, asi que la
+    comparacion entre lo observado y lo nulo no puede desalinearse.
     """
     eventos = eventos.reset_index(drop=True).copy()
     if len(eventos) == 0:
@@ -165,9 +159,38 @@ def agregar_retornos(barras, cal, eventos, cfg):
         eventos["h_fin_franja"] = np.array([], dtype=float)
         return eventos
 
-    t = eventos["t_evento_ns"].to_numpy(np.int64)
-    direccion = eventos["direccion"].to_numpy(float)
-    sigma = eventos["sigma_ref"].to_numpy(float)
+    columnas = calcular_retornos(
+        barras, cal, cfg,
+        t_ns=eventos["t_evento_ns"].to_numpy(np.int64),
+        direccion=eventos["direccion"].to_numpy(float),
+        sigma=eventos["sigma_ref"].to_numpy(float),
+        pos_franja=eventos["pos_franja"].to_numpy(int))
+    for nombre, valores in columnas.items():
+        eventos[nombre] = valores
+    return eventos
+
+
+def calcular_retornos(barras, cal, cfg, t_ns, direccion, sigma, pos_franja):
+    """
+    Nucleo del calculo de resultados, sobre arrays.
+
+        ret_h = direccion * (ln P(t+h) - ln P(t)) / (sigma_ref * raiz(h))
+
+    Queda NaN si falta el precio en alguna punta, si sigma_ref no existe, o si
+    t+h cruza un cierre de mercado (el horizonte tendria dentro un fin de semana
+    entero, que no es lo que se quiere medir).
+
+    El horizonte "fin_franja" llega hasta el fin de la franja del instante o
+    hasta la ultima barra antes del cierre de mercado, lo que ocurra primero.
+    Por eso una ruptura del viernes por la tarde mide solo hasta el cierre.
+
+    Devuelve un diccionario {nombre de columna: array}.
+    """
+    t = np.asarray(t_ns, dtype=np.int64)
+    direccion = np.asarray(direccion, dtype=float)
+    sigma = np.asarray(sigma, dtype=float)
+    pos_franja = np.asarray(pos_franja, dtype=int)
+    columnas = {}
 
     j_t = np.asarray(barras.indice_al_cierre(t, cfg.TOLERANCIA_PRECIO_MIN))
     precio_0 = np.where(j_t >= 0, barras.mid_c[np.maximum(j_t, 0)], np.nan)
@@ -175,18 +198,18 @@ def agregar_retornos(barras, cal, eventos, cfg):
 
     # Horizonte variable: hasta el fin de la franja o hasta el cierre de mercado.
     fin_sesion = _fin_de_sesion(barras)
-    i1 = cal["i1"].to_numpy()[eventos["pos_franja"].to_numpy()]
+    i1 = cal["i1"].to_numpy()[pos_franja]
     ultima = np.minimum(np.where(j_t >= 0, fin_sesion[np.maximum(j_t, 0)], 0), i1 - 1)
     t_fin = np.where(j_t >= 0, barras.cierre_ns[np.maximum(ultima, 0)], 0)
     h_fin = np.where(j_t >= 0, (t_fin - t) / tiempo.NS_MIN, np.nan)
-    eventos["h_fin_franja"] = np.where(h_fin > 0, h_fin, np.nan)
+    columnas["h_fin_franja"] = np.where(h_fin > 0, h_fin, np.nan)
 
     for h in cfg.HORIZONTES:
         if h == "fin_franja":
-            minutos = eventos["h_fin_franja"].to_numpy(float)
+            minutos = columnas["h_fin_franja"]
             t_final = np.where(np.isfinite(minutos), t_fin, 0).astype(np.int64)
         else:
-            minutos = np.full(len(eventos), float(h))
+            minutos = np.full(len(t), float(h))
             t_final = t + int(h) * tiempo.NS_MIN
 
         j_h = np.asarray(barras.indice_al_cierre(t_final, cfg.TOLERANCIA_PRECIO_MIN))
@@ -203,6 +226,6 @@ def agregar_retornos(barras, cal, eventos, cfg):
         with np.errstate(invalid="ignore", divide="ignore"):
             bruto = direccion * (np.log(precio_h) - np.log(precio_0))
             valor = bruto / (sigma * np.sqrt(minutos))
-        eventos[f"ret_{h}"] = np.where(sirve, valor, np.nan)
+        columnas[f"ret_{h}"] = np.where(sirve, valor, np.nan)
 
-    return eventos
+    return columnas

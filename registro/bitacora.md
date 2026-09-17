@@ -277,6 +277,7 @@ eso el tope de procesos en paralelo ya esta anotado como pendiente.
 
 ### Ajustes posteriores al cierre del punto B (2026-09-17)
 
+
 Cuatro cambios pedidos por el grupo, todos con su test:
 
 1. `cerca_extremo_previo` ahora retrocede al ultimo dia utilizable en vez de
@@ -287,3 +288,124 @@ Cuatro cambios pedidos por el grupo, todos con su test:
    alcance de `TOLERANCIA_PRECIO_MIN`.
 
 Tests despues de los ajustes: 70 pasan, 0 fallan, 0 avisos.
+
+---
+
+## Punto de control C — Estadistica
+
+- **Fecha**: 2026-09-17
+- **Commit**: pendiente (se completa en el commit siguiente)
+- **Tests**: `pytest` -> 91 pasan, 0 fallan, 0 avisos.
+
+### Que se hizo
+
+- **`nula.py`**: la hipotesis nula emparejada. A cada evento se le sortean
+  minutos con el mismo indice de franja, el mismo dia de semana y el mismo
+  decil de volatilidad, excluyendo su propia franja. Los retornos de TODOS los
+  minutos candidatos se precalculan una sola vez, asi cada repeticion es solo
+  sortear indices. p-valor de Phipson y Smyth (2010).
+- **`inferencia.py`**: minimos cuadrados con errores agrupados por fecha de
+  Londres (escritos a mano en numpy, porque el bootstrap repite el ajuste
+  decenas de miles de veces), Holm paso a paso y Romano-Wolf (2005) stepdown
+  con el maximo del estadistico t, remuestreando DIAS con reemplazo.
+- **Refactor previo**: `resultados.calcular_retornos` es ahora el nucleo comun.
+  Los eventos reales y los minutos sorteados pasan por la MISMA funcion, asi la
+  comparacion no puede desalinearse. Y `eventos.franjas_utilizables` es la
+  unica definicion de "franja que puede generar eventos", que la nula reusa
+  para decidir de donde puede sortear.
+
+### HALLAZGO IMPORTANTE: el moderador "noticia" rechaza de mas
+
+Al medir la tasa de falsos positivos sobre 30 mercados sin ningun patron, la
+familia de moderadores rechaza mucho mas de lo que deberia. Los numeros:
+
+| coeficiente            | % de p brutos <= 0.05 | rechazos tras Holm |
+|------------------------|----------------------:|-------------------:|
+| `cerca_extremo_previo` | 1,7%                  | 0 de 240           |
+| `cerca_redondo`        | 2,9%                  | 0 de 240           |
+| `comprimida`           | 5,4%                  | 1 de 240           |
+| **`noticia`**          | **25,0%**             | **27 de 176**      |
+
+Esperado: 5% en la primera columna y casi cero en la segunda.
+
+**El problema NO esta en el motor ni en la correccion.** Tres verificaciones:
+
+1. Los errores estandar agrupados coinciden con statsmodels a precision de
+   maquina (esta como test).
+2. Comparando la variabilidad de las estimaciones ENTRE mercados contra el
+   error estandar reportado DENTRO de cada mercado, la razon mediana es 0,98:
+   bien calibrado. Pero en `noticia` esa razon llega a 2,86, o sea que el error
+   estandar reportado es hasta tres veces mas chico de lo que deberia.
+3. Sacando `noticia` de la familia, la tasa de p brutos <= 0.05 baja a 3,3% y
+   solo 1 de 30 mercados tiene algun rechazo corregido (3,3%). Correcto.
+
+**La causa, en simple**: casi ningun evento cae cerca de un anuncio. En estos
+mercados de prueba el grupo "con noticia" tiene en promedio 4,2 eventos
+repartidos en 4,2 dias para los reingresos, y 0,8 eventos para las sostenidas.
+El error estandar agrupado se apoya en que haya muchos grupos con variacion; si
+el grupo tratado cabe en uno o dos dias, la formula devuelve un numero
+demasiado chico y cualquier diferencia parece significativa. Es un problema
+conocido en la literatura (pocos clusters tratados; Cameron, Gelbach y Miller
+2008; MacKinnon y Webb 2017), no una particularidad de este codigo.
+
+**Romano-Wolf lo corrige**: sobre 15 mercados dio 0 rechazos de `noticia`
+contra 13 de Holm. Pero 0 de 15 sugiere que se pasa de conservador, porque en
+muchos remuestreos el grupo tratado desaparece y el estadistico queda sin
+definir. Habria que medir cuanta potencia queda, y eso es justamente el punto E.
+
+**Opciones para el grupo** (ninguna aplicada, ninguna es obviamente la mejor):
+
+- **A. Exigir un minimo de dias tratados** para que la prueba de `noticia` entre
+  en la familia (por ejemplo 20 dias con evento cerca de un anuncio). Si no se
+  llega, se informa descriptivamente y sin prueba formal. Simple, transparente y
+  facil de pre-registrar.
+- **B. Bootstrap wild cluster** solo para `noticia`. Es el remedio estandar de la
+  literatura para pocos clusters tratados. Mas trabajo y un metodo mas que
+  explicar en la tesis.
+- **C. Romano-Wolf como correccion principal** de la familia de moderadores
+  (`CORRECCION_PRINCIPAL = "romano_wolf"`), aceptando perder potencia.
+- **D. Cambiar como se mide H4**: en vez de un coeficiente en la regresion,
+  partir la muestra en "con noticia" y "sin noticia" y comparar cada grupo con
+  su propia nula emparejada. La nula es exacta y no depende de que los errores
+  estandar sean confiables con pocos datos. Es la opcion que mejor calza con el
+  resto del diseno, pero cambia el enunciado operativo de H4.
+- **E. Ampliar `VENTANA_NOTICIAS_MIN`** para que mas eventos cuenten como
+  tratados. **No recomendada**: cambiaria la hipotesis para acomodar la
+  estadistica, que es exactamente lo que un pre-registro busca evitar.
+
+Advertencia sobre estos numeros: el calendario de anuncios usado aqui es de
+juguete. El del punto D (empleo, IPC y FOMC, 32 al ano) dara mas eventos
+tratados y el problema sera menor, pero no desaparece para las sostenidas, que
+son pocas. El control negativo del punto D lo va a medir bien.
+
+### Decisiones de esta etapa
+
+1. **Los deciles de volatilidad se calculan sobre las franjas CANDIDATAS**, no
+   sobre los eventos. Asi ningun grupo de emparejamiento queda sin minutos de
+   donde sortear.
+2. **Holm se aplica a los p-valores brutos de cada familia**: los de la nula
+   emparejada para H1 y H2, los de la regresion para H3 y H4. Romano-Wolf, en
+   cambio, trabaja siempre sobre los estadisticos t de la regresion, porque
+   necesita un estadistico comun y su propio remuestreo. Esa diferencia queda
+   declarada y va al pre-registro.
+3. **El p-valor de dos colas se centra en el promedio de la nula**, no en cero:
+   la distribucion nula no tiene por que estar exactamente centrada.
+4. **Una prueba que no se puede correr** (por ejemplo un moderador que no varia
+   en esa celda) sale como NaN y no ocupa lugar en la familia de Holm.
+5. **Un evento que no tiene con quien emparejarse** queda fuera de la
+   comparacion y se informa en `n_descartados`, en vez de compararse consigo
+   mismo.
+
+### Rendimiento
+
+Sobre 2 anos simulados con fines de semana: nula con 500 repeticiones, 1,2 s;
+Romano-Wolf con 200 remuestreos sobre la familia de 32 pruebas, 1,2 s por
+mercado. El punto D es viable con Holm; Romano-Wolf conviene reservarlo para la
+tabla final y no para las 50 corridas del control negativo.
+
+### Pendientes al cerrar el punto C
+
+- **Decidir entre las opciones A a E** de `noticia` antes de cerrar el punto D.
+  Mientras tanto, el control negativo se corre tal cual y el reporte va a
+  mostrar el problema con el calendario de anuncios de verdad.
+- Sigue todo lo anterior, incluidos los 18 parametros `# POR DECIDIR`.

@@ -72,6 +72,46 @@ def _primera(mascara):
     return int(np.argmax(mascara)) if mascara.any() else -1
 
 
+def franjas_utilizables(cal, sigma, cfg):
+    """
+    Mascara sobre las filas del calendario: que franjas pueden generar eventos.
+
+    Es la misma condicion que usa la hipotesis nula para decidir de que minutos
+    se puede sortear. Vive en una sola funcion justamente para que las dos
+    cosas no se separen nunca.
+    """
+    n = len(cal)
+    cobertura = cal["cobertura"].to_numpy(float)
+    H_ref = cal["H"].to_numpy(float)
+    L_ref = cal["L"].to_numpy(float)
+    i0_col = cal["i0"].to_numpy()
+    i1_col = cal["i1"].to_numpy()
+    sesion_col = cal["sesion"].to_numpy()
+    hueco_col = cal["hueco_inicial"].to_numpy(float)
+
+    k = np.arange(n)
+    hay_referencia = k >= 1
+    ref = np.maximum(k - 1, 0)
+    sirve = (
+        hay_referencia
+        & (cobertura[ref] >= cfg.COBERTURA_MIN_REFERENCIA)
+        & (i1_col > i0_col)
+        & np.isfinite(H_ref[ref]) & np.isfinite(L_ref[ref])
+        & np.isfinite(sigma)
+    )
+    if not cfg.REFERENCIA_CRUZA_CIERRE:
+        # Dos condiciones, y hacen falta las dos:
+        #  - la referencia y la franja k comparten sesion. Como las sesiones van
+        #    en aumento, eso descarta cualquier cierre ENTRE una y otra.
+        #  - la referencia no empezo con el mercado cerrado. Es el caso del
+        #    domingo por la tarde: la franja figura, pero sus datos parten
+        #    recien cuando el mercado abre, ya avanzada la franja.
+        sirve &= sesion_col[ref] == sesion_col
+        sirve &= sesion_col >= 0
+        sirve &= hueco_col[ref] <= cfg.HUECO_CIERRE_MIN
+    return sirve
+
+
 def detectar(barras, cal, cfg, sigma=None):
     """
     Devuelve el DataFrame de eventos, ordenado por instante del evento.
@@ -82,41 +122,17 @@ def detectar(barras, cal, cfg, sigma=None):
     if sigma is None:
         sigma = resultados.sigma_por_franja(barras, cal, cfg)
 
-    cobertura = cal["cobertura"].to_numpy(float)
     H_ref = cal["H"].to_numpy(float)
     L_ref = cal["L"].to_numpy(float)
     i0_col = cal["i0"].to_numpy()
     i1_col = cal["i1"].to_numpy()
     fin_ns_col = cal["fin_ns"].to_numpy(np.int64)
-    sesion_col = cal["sesion"].to_numpy()
-    hueco_col = cal["hueco_inicial"].to_numpy(float)
     fecha_col = cal["fecha_londres"].to_numpy()
     idx_col = cal["idx_franja"].to_numpy()
     dia_col = cal["dia_semana"].to_numpy()
 
-    # Franjas que pueden generar eventos. Todo lo de aqui es informacion que ya
-    # existe cuando empieza la franja k.
-    n = len(cal)
-    k_todas = np.arange(1, n)
-    sirve = (
-        (cobertura[k_todas - 1] >= cfg.COBERTURA_MIN_REFERENCIA)
-        & (i1_col[k_todas] > i0_col[k_todas])
-        & np.isfinite(H_ref[k_todas - 1]) & np.isfinite(L_ref[k_todas - 1])
-        & np.isfinite(sigma[k_todas])
-    )
-    if not cfg.REFERENCIA_CRUZA_CIERRE:
-        # Dos condiciones, y hacen falta las dos:
-        #  - la referencia y la franja k comparten sesion. Como las sesiones van
-        #    en aumento, eso descarta cualquier cierre ENTRE una y otra.
-        #  - la referencia no empezo con el mercado cerrado. Es el caso del
-        #    domingo por la tarde: la franja figura, pero sus datos parten
-        #    recien cuando el mercado abre, ya avanzada la franja.
-        sirve &= sesion_col[k_todas - 1] == sesion_col[k_todas]
-        sirve &= sesion_col[k_todas] >= 0
-        sirve &= hueco_col[k_todas - 1] <= cfg.HUECO_CIERRE_MIN
-
     filas = []
-    for k in k_todas[sirve]:
+    for k in np.flatnonzero(franjas_utilizables(cal, sigma, cfg)):
         ref = k - 1
         H, L = H_ref[ref], L_ref[ref]
         i0, i1 = i0_col[k], i1_col[k]
