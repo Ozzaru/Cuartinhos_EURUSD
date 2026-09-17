@@ -151,7 +151,7 @@ Punto de control B: `motor/franjas.py`, `motor/eventos.py`,
 ## Punto de control B — Motor de eventos
 
 - **Fecha**: 2026-09-16
-- **Commit**: pendiente (se completa en el commit siguiente)
+- **Commit**: `88b02d0` (`punto B: motor de eventos, resultados y moderadores`)
 - **Tests**: `pytest` -> 68 pasan, 0 fallan, 0 avisos.
 
 ### Que se hizo
