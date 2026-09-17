@@ -294,7 +294,7 @@ Tests despues de los ajustes: 70 pasan, 0 fallan, 0 avisos.
 ## Punto de control C — Estadistica
 
 - **Fecha**: 2026-09-17
-- **Commit**: pendiente (se completa en el commit siguiente)
+- **Commit**: `bbf6a69` (`punto C: hipotesis nula emparejada e inferencia`)
 - **Tests**: `pytest` -> 91 pasan, 0 fallan, 0 avisos.
 
 ### Que se hizo
