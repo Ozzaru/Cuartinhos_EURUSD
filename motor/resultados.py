@@ -26,9 +26,16 @@ import pandas as pd
 from . import tiempo
 
 
-def precio_en(barras, t_ns, cfg):
-    """Precio medio en el instante t (ver la regla en el docstring del modulo)."""
-    j = barras.indice_al_cierre(t_ns, cfg.TOLERANCIA_PRECIO_MIN)
+def precio_en(barras, t_ns, cfg, tolerancia_min=None):
+    """
+    Precio medio en el instante t (ver la regla en el docstring del modulo).
+
+    `tolerancia_min` permite exigir la barra exacta (0). La deteccion de
+    eventos lo usa asi: la tolerancia es una comodidad para MEDIR resultados,
+    no para declarar que un evento ocurrio.
+    """
+    tolerancia = cfg.TOLERANCIA_PRECIO_MIN if tolerancia_min is None else tolerancia_min
+    j = barras.indice_al_cierre(t_ns, tolerancia)
     j = np.asarray(j)
     seguro = np.maximum(j, 0)
     return np.where(j >= 0, barras.mid_c[seguro], np.nan)

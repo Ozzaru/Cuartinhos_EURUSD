@@ -8,10 +8,11 @@ Todas se calculan con informacion que ya existe en el instante del evento:
                         numero redondo (multiplo de PASO_REDONDO). El extremo
                         viene de la franja anterior, asi que es pasado puro.
   cerca_extremo_previo  el extremo roto esta pegado al maximo (si la ruptura es
-                        alcista) o al minimo (si es bajista) del dia de Londres
-                        anterior. Un dia de Londres termina a las 00:00 de
-                        Londres, o sea antes de cualquier evento del dia
-                        siguiente.
+                        alcista) o al minimo (si es bajista) del ultimo dia de
+                        Londres anterior con suficiente mercado abierto. Casi
+                        siempre es la vispera; para un lunes, el viernes. Un dia
+                        de Londres termina a las 00:00 de Londres, o sea antes
+                        de cualquier evento del dia siguiente.
   comprimida            la franja de referencia fue estrecha comparada con la
                         mediana de ese mismo tipo de franja en los dias previos.
   noticia               hubo un anuncio macro en los VENTANA_NOTICIAS_MIN
@@ -45,9 +46,35 @@ def _extremos_del_dia(cal, cfg):
         maximo=("H", "max"), minimo=("L", "min"),
         presentes=("minutos_presentes", "sum"), esperados=("minutos_esperados", "sum"))
     tabla["cobertura"] = tabla["presentes"] / tabla["esperados"]
-    usable = tabla["cobertura"] >= cfg.DIA_PREVIO_MIN_COBERTURA
-    tabla.loc[~usable, ["maximo", "minimo"]] = np.nan
+    tabla["usable"] = ((tabla["cobertura"] >= cfg.DIA_PREVIO_MIN_COBERTURA)
+                       & np.isfinite(tabla["maximo"]) & np.isfinite(tabla["minimo"]))
     return tabla
+
+
+def _ultimo_dia_utilizable(cal, fechas_evento, cfg):
+    """
+    Extremos del ultimo dia de Londres ANTERIOR al evento que tenga suficiente
+    mercado abierto.
+
+    Casi siempre es el dia de calendario anterior. La excepcion son los lunes:
+    su vispera es el domingo, que trae una o dos horas, asi que se retrocede
+    hasta el viernes. Todo esto es pasado cerrado, porque un dia de Londres
+    termina a las 00:00 de Londres.
+    """
+    tabla = _extremos_del_dia(cal, cfg)
+    utiles = tabla[tabla["usable"]]
+    if len(utiles) == 0:
+        vacio = np.full(len(fechas_evento), np.nan)
+        return vacio, vacio.copy()
+
+    dias = utiles.index.to_numpy()
+    # El ultimo dia util ESTRICTAMENTE anterior a la fecha del evento.
+    pos = np.searchsorted(dias, np.asarray(fechas_evento), side="left") - 1
+    hay = pos >= 0
+    seguro = np.maximum(pos, 0)
+    maximo = np.where(hay, utiles["maximo"].to_numpy()[seguro], np.nan)
+    minimo = np.where(hay, utiles["minimo"].to_numpy()[seguro], np.nan)
+    return maximo, minimo
 
 
 def agregar(barras, cal, eventos, cfg, noticias=None):
@@ -76,11 +103,8 @@ def agregar(barras, cal, eventos, cfg, noticias=None):
     eventos["cerca_redondo"] = (dist_pips <= cfg.RADIO_REDONDO_PIPS).astype(float)
 
     # --- extremos del dia de Londres anterior -------------------------------
-    dias = _extremos_del_dia(cal, cfg)
-    fecha = pd.DatetimeIndex(eventos["fecha_londres"])
-    previo = fecha - pd.Timedelta(days=1)
-    maximo_previo = dias["maximo"].reindex(previo).to_numpy(float)
-    minimo_previo = dias["minimo"].reindex(previo).to_numpy(float)
+    fecha = pd.DatetimeIndex(eventos["fecha_londres"]).to_numpy()
+    maximo_previo, minimo_previo = _ultimo_dia_utilizable(cal, fecha, cfg)
 
     referencia = np.where(direccion == 1, maximo_previo, minimo_previo)
     distancia = np.abs(extremo - referencia) / cfg.PIP

@@ -16,6 +16,8 @@ Los tres tipos de evento, todos con su instante conocido en el momento:
              y en ese instante ya se sabe todo lo necesario para declararlo.
              Esto es distinto de "una ruptura que nunca se devolvio", que
              exigiria conocer el futuro hasta el fin de la muestra.
+             Exige la barra EXACTA que cierra en t_ruptura + M: si falta, no
+             hay evento.
 
   reingreso  primera barra posterior a la ruptura cuyo mid_close vuelve a
              cruzar el extremo hacia adentro. El evento ocurre en el cierre de
@@ -185,9 +187,13 @@ def detectar(barras, cal, cfg, sigma=None):
         t_sost = t_rup + cfg.M_SOSTENIDA_MIN * tiempo.NS_MIN
         if t_sost > fin_ns_col[k]:
             continue                       # el plazo se pasa del fin de la franja
-        precio_sost = float(resultados.precio_en(barras, np.array([t_sost]), cfg)[0])
+        # Se exige la barra EXACTA que cierra en t + M, sin tolerancia: declarar
+        # que una ruptura aguanto es afirmar algo sobre ese instante preciso.
+        # La tolerancia de TOLERANCIA_PRECIO_MIN es solo para medir resultados.
+        precio_sost = float(resultados.precio_en(barras, np.array([t_sost]), cfg,
+                                                 tolerancia_min=0)[0])
         if not np.isfinite(precio_sost):
-            continue                       # no hay precio en t+M: no se puede declarar
+            continue                       # no hay barra en t+M: no se puede declarar
 
         if cfg.REGLA_SOSTENIDA == "sin_reingreso":
             ventana = posterior & (cierre <= t_sost)

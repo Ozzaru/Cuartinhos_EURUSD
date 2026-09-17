@@ -184,6 +184,29 @@ def test_si_reingresa_y_vuelve_a_salir_antes_de_m_no_hay_sostenida():
     assert de_la_franja(tabla2).loc["sostenida"]["t_evento_utc"] == hora("2020-06-16 06:46")
 
 
+@pytest.mark.parametrize("regla", ["sin_reingreso", "fuera_en_t_mas_m"])
+def test_sin_la_barra_exacta_de_t_mas_m_no_hay_sostenida(regla):
+    # Declarar que una ruptura aguanto es afirmar algo sobre un instante
+    # preciso. Si falta la barra que cierra en t + M, no se declara, aunque la
+    # barra de un minuto antes serviria para medir un retorno.
+    cfg = ayuda.cfg_prueba(M_SOSTENIDA_MIN=15, REGLA_SOSTENIDA=regla,
+                           TOLERANCIA_PRECIO_MIN=2)
+
+    def quitar(idx):
+        # La barra que cierra a las 06:46 es la que ABRE a las 06:45.
+        return idx == hora("2020-06-16 06:45")
+
+    _, _, tabla = escenario(cfg, aguanta_quince_minutos(), quitar=quitar)
+    ev = de_la_franja(tabla)
+    assert "ruptura" in ev.index, "la ruptura si ocurrio y no depende de esa barra"
+    assert "sostenida" not in ev.index
+
+    # Con la barra presente, el evento aparece: lo que falta es la barra y no
+    # otra cosa del escenario.
+    _, _, completo = escenario(cfg, aguanta_quince_minutos())
+    assert "sostenida" in de_la_franja(completo).index
+
+
 def test_la_sostenida_no_puede_caer_despues_del_fin_de_la_franja():
     # La franja termina a las 11:00 UTC. Una ruptura a las 10:55 con M = 15
     # caeria a las 11:10, ya fuera de la franja.

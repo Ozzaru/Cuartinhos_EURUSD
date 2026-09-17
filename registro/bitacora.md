@@ -93,6 +93,18 @@ son elecciones de metodo, no parametros libres.
   Londres, porque los eventos del mismo dia comparten shocks. Newey-West queda
   como alternativa de robustez, no como especificacion principal.
 - `RW_REPETICIONES = 1000`: remuestreos de dias del bootstrap de Romano-Wolf.
+- **"Dentro" del extremo es estricto**: para una ruptura alcista el precio esta
+  adentro solo si `mid_close < H`, y para una bajista solo si `mid_close > L`.
+  Un cierre exactamente EN el extremo cuenta como afuera. Afecta tanto al
+  reingreso como a la regla `sin_reingreso` de la sostenida.
+- **La ruptura sostenida exige la barra exacta que cierra en t_ruptura + M**,
+  con las dos reglas. Si esa barra falta, no hay evento sostenido.
+  `TOLERANCIA_PRECIO_MIN` se aplica solo a los precios de los retornos:
+  declarar que una ruptura aguanto es afirmar algo sobre un instante preciso,
+  medir un retorno no.
+- **`cerca_extremo_previo` retrocede hasta el ultimo dia de Londres utilizable**
+  (el que cumple `DIA_PREVIO_MIN_COBERTURA`), no solo la vispera. Para un lunes
+  eso es normalmente el viernes. Asi el moderador no se pierde por el domingo.
 
 ### Ajuste posterior al cierre del punto A (mismo dia)
 
@@ -253,5 +265,25 @@ eso el tope de procesos en paralelo ya esta anotado como pendiente.
   solo un 17% de esas rupturas aguanta 15 minutos sin reingresar. Son numeros
   de un paseo aleatorio, no del EUR/USD, pero conviene que el grupo los mire al
   fijar el umbral y M.
-- Para el punto E: evaluar guardar los precios en float32 o generar el mercado
-  por tramos, para que 13 anos no ocupen medio giga por proceso.
+- Para el punto E: el motor se queda en float64. Nada de float32, porque las
+  comparaciones contra H y L podrian cambiar por redondeo y eso alteraria que
+  cuenta como ruptura. Si la memoria aprieta, se bajan los procesos en paralelo
+  o se genera el mercado por anos.
+- Para el punto F: el borrador lleva un ANEXO DE SENSIBILIDAD, calculado solo
+  con mercados simulados y solo descriptivo, para que el grupo elija umbral y M
+  con numeros a la vista. Tabla con % de franjas con ruptura, % con sostenida y
+  % con reingreso para `UMBRAL_PIPS` en {1, 3, 5}, `UMBRAL_VOL` en {1, 2, 3} y
+  `M_SOSTENIDA_MIN` en {5, 15, 30}.
+
+### Ajustes posteriores al cierre del punto B (2026-09-17)
+
+Cuatro cambios pedidos por el grupo, todos con su test:
+
+1. `cerca_extremo_previo` ahora retrocede al ultimo dia utilizable en vez de
+   quedar en NaN cuando la vispera es un domingo.
+2. El motor se queda en float64 (ver pendientes).
+3. La sostenida exige la barra exacta de t_ruptura + M con las dos reglas.
+4. Quedan escritas como decisiones de metodo la estrictez de "dentro" y el
+   alcance de `TOLERANCIA_PRECIO_MIN`.
+
+Tests despues de los ajustes: 70 pasan, 0 fallan, 0 avisos.

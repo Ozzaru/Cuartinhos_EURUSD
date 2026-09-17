@@ -91,16 +91,35 @@ def test_sin_dia_anterior_utilizable_el_moderador_queda_en_nan():
     assert np.isnan(salida["cerca_extremo_previo"].iloc[0])
 
 
-def test_un_dia_anterior_con_poca_cobertura_no_cuenta():
-    # El domingo solo trae un par de horas de mercado. Sus extremos no son
-    # comparables con los de un dia completo, asi que no se usan.
-    cfg = ayuda.cfg_prueba(DIA_PREVIO_MIN_COBERTURA=0.50)
-    idx = ayuda.indice("2020-06-19 00:00", 4 * 24 * 60)
+def test_el_lunes_se_compara_contra_el_viernes_y_no_contra_el_domingo():
+    # El domingo solo trae un par de horas de mercado: sus extremos no son
+    # comparables con los de un dia completo. En vez de perder el moderador, se
+    # retrocede al ultimo dia con mercado suficiente, que es el viernes.
+    cfg = ayuda.cfg_prueba(DIA_PREVIO_MIN_COBERTURA=0.50, RADIO_EXTREMO_PREVIO_PIPS=3)
+    idx = ayuda.indice("2020-06-19 00:00", 4 * 24 * 60)      # viernes a lunes
     cerrado = (idx >= hora("2020-06-19 21:00")) & (idx < hora("2020-06-21 21:00"))
     idx = idx[~cerrado]
-    barras, cal = contexto(cfg, idx=idx)
-    salida = moderadores.agregar(barras, cal, evento(cal, "2020-06-22 01:01", 1.10000), cfg)
-    assert np.isnan(salida["cerca_extremo_previo"].iloc[0]), "el domingo no sirve de referencia"
+    velas = ayuda.plano(len(idx), 1.10000)
+    # Maximo y minimo del VIERNES.
+    velas[int(idx.get_loc(hora("2020-06-19 10:00"))), 1] = 1.10300
+    velas[int(idx.get_loc(hora("2020-06-19 11:00"))), 2] = 1.09700
+    # El domingo se mueve a otros niveles, que NO deben usarse.
+    velas[int(idx.get_loc(hora("2020-06-21 22:00"))), 1] = 1.10900
+    velas[int(idx.get_loc(hora("2020-06-21 22:30"))), 2] = 1.09100
+    barras, cal = contexto(cfg, velas=velas, idx=idx)
+
+    # Ruptura alcista del lunes a 2 pips del maximo del VIERNES.
+    cerca = moderadores.agregar(barras, cal, evento(cal, "2020-06-22 01:01", 1.10280), cfg)
+    assert cerca["cerca_extremo_previo"].iloc[0] == 1.0
+
+    # A 2 pips del maximo del DOMINGO, que es el que no se debe mirar.
+    domingo = moderadores.agregar(barras, cal, evento(cal, "2020-06-22 01:01", 1.10880), cfg)
+    assert domingo["cerca_extremo_previo"].iloc[0] == 0.0, "el domingo no sirve de referencia"
+
+    # Y lo mismo por el lado bajista.
+    bajista = moderadores.agregar(
+        barras, cal, evento(cal, "2020-06-22 01:01", 1.09720, direccion=-1), cfg)
+    assert bajista["cerca_extremo_previo"].iloc[0] == 1.0
 
 
 # --- compresion -------------------------------------------------------------
