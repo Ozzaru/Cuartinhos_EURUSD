@@ -5,7 +5,11 @@
 # la resolucion por defecto de las fechas, y aqui un error de unidades de
 # tiempo pasaria en silencio. Ver tests/test_tiempo.py.
 pandas==2.2.3
-numpy==2.5.3
+# numpy 2.4.6 es la version mas nueva que convive limpia con pandas 2.2.3:
+# desde numpy 2.5.0, `indice + pd.Timedelta(...)` levanta un DeprecationWarning
+# desde dentro de pandas. Como los tests tratan esos avisos como error, subir
+# numpy a 2.5 rompe la suite a proposito, para que el cambio no pase inadvertido.
+numpy==2.4.6
 scipy==1.18.1
 statsmodels==0.15.0
 pyarrow==25.0.1

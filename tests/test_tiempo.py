@@ -37,9 +37,11 @@ def test_el_cierre_es_la_apertura_mas_un_minuto():
     aperturas = tiempo.a_ns(idx)
     cierres = tiempo.cierre_ns(aperturas)
     # Escrito de las dos formas: aritmetica en ns y aritmetica de fechas.
-    # (Se usa to_timedelta y no Timedelta: ver la nota de version en tiempo.py.)
+    # La suma con pd.Timedelta va a proposito: desde numpy 2.5 esa operacion
+    # levanta un aviso dentro de pandas 2.2.3, y como los avisos son errores,
+    # esta linea falla si alguien sube numpy sin revisar el resto del entorno.
     assert np.all(cierres - aperturas == 60_000_000_000)
-    assert np.array_equal(cierres, tiempo.a_ns(idx + pd.to_timedelta(1, unit="m")))
+    assert np.array_equal(cierres, tiempo.a_ns(idx + pd.Timedelta(minutes=1)))
     # La version escalar tiene que coincidir con la vectorizada.
     assert tiempo.cierre_ns(int(aperturas[0])) == int(cierres[0])
     # El cierre de una barra es la apertura de la siguiente.

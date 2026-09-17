@@ -15,14 +15,6 @@ recien ahi su informacion existe.
 
 Todas las marcas de tiempo deben traer zona horaria. Una fecha sin zona se
 rechaza con un error: preferimos que reviente a que se asuma una zona.
-
-NOTA DE VERSION (pandas 2.2.3 con numpy 2.5.3, verificado el 2026-09-16):
-`indice + pd.Timedelta(minutes=1)` funciona y da el resultado correcto, pero
-levanta un DeprecationWarning de numpy desde dentro de pandas ("generic unit
-for NumPy timedelta"). No afecta a este motor porque toda la aritmetica de
-tiempo se hace en enteros de nanosegundos con `cierre_ns`. Donde haga falta
-sumar tiempo con la API de pandas, usar `pd.to_timedelta(n, unit="m")`, que
-no pasa por ese camino.
 """
 import numpy as np
 import pandas as pd

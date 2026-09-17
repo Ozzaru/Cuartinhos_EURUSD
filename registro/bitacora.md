@@ -101,12 +101,22 @@ son elecciones de metodo, no parametros libres.
   unidades de tiempo pasaria en silencio. `pip check` no reporta ningun
   conflicto y el resto de las versiones fijas quedan igual. pandas 2.2 arrastra
   `pytz`, que tambien quedo fijado.
-- **Hallazgo de compatibilidad**: con pandas 2.2.3 + numpy 2.5.3, la operacion
-  `indice + pd.Timedelta(minutes=1)` da el resultado correcto pero levanta un
-  DeprecationWarning de numpy desde dentro de pandas. No afecta al motor,
-  porque toda la aritmetica de tiempo se hace en enteros de nanosegundos. Queda
-  anotado en el docstring de `motor/tiempo.py`: donde haga falta la API de
-  pandas, se usa `pd.to_timedelta(n, unit="m")`.
+- **numpy bajado de 2.5.3 a 2.4.6** y fijado. Se probo la frontera una por una:
+  2.1.3, 2.2.6, 2.3.5 y 2.4.6 conviven limpias con pandas 2.2.3; desde 2.5.0 la
+  operacion `indice + pd.Timedelta(...)` levanta un DeprecationWarning de numpy
+  desde dentro de pandas ("generic unit for NumPy timedelta"). 2.4.6 es la mas
+  reciente sin ese aviso. `pip check` sin conflictos y scipy, statsmodels,
+  pyarrow y matplotlib siguen en sus versiones originales, sin necesidad de
+  tocarlas.
+- **Regla nueva: la corrida de tests termina con CERO avisos.** `pytest.ini`
+  trata `DeprecationWarning` y `FutureWarning` como error. Un aviso de esa clase
+  suele ser el primer sintoma de un cambio de comportamiento silencioso
+  (unidades de tiempo, zonas horarias, manejo de NaN). Si alguna vez uno viene
+  de una libreria externa y es inevitable, se silencia solo ese caso, con su
+  filtro y su comentario; la regla completa no se apaga.
+  Efecto secundario util: el test del cierre de barra suma con `pd.Timedelta`
+  a proposito, asi que subir numpy a 2.5 rompe la suite y nadie lo cambia sin
+  enterarse.
 - **Nuevo modulo `motor/tiempo.py`**: unica puerta de conversion de fechas
   (`a_ns`, `de_ns`, `cierre_ns`, `a_zona`, `a_utc`). Regla del proyecto:
   ningun otro modulo convierte tiempos a mano. `cierre_ns` es la regla de
