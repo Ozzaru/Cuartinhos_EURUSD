@@ -58,6 +58,7 @@ HORIZONTE_PRINCIPAL = 60                     # horizonte unico al que se podria 
 
 DIAS_VOL_REF = 20                            # dias pasados validos usados para estimar sigma_ref (volatilidad de referencia)
 DIAS_VOL_REF_MIN = 10                        # dias validos minimos; con menos, sigma_ref = NaN y el evento se descarta  # POR DECIDIR
+TOLERANCIA_PRECIO_MIN = 2                    # si falta la barra que cierra en t, se acepta la ultima cerrada hasta 2 minutos antes  # POR DECIDIR
 
 # Lista de horizontes tal como la usan resultados.py, nula.py e inferencia.py.
 HORIZONTES = list(HORIZONTES_MIN) + (["fin_franja"] if INCLUIR_FIN_FRANJA else [])
@@ -68,6 +69,7 @@ HORIZONTES = list(HORIZONTES_MIN) + (["fin_franja"] if INCLUIR_FIN_FRANJA else [
 PASO_REDONDO = 0.0050                        # rejilla de numeros redondos (0.0050 = terminaciones 00 y 50)  # POR DECIDIR
 RADIO_REDONDO_PIPS = 5                       # distancia maxima, en pips, para considerar el extremo "cerca de un numero redondo"  # POR DECIDIR
 RADIO_EXTREMO_PREVIO_PIPS = 3                # distancia maxima, en pips, al extremo del dia de Londres anterior  # POR DECIDIR
+DIA_PREVIO_MIN_COBERTURA = 0.50              # cobertura minima del dia de Londres anterior para que sus extremos cuenten  # POR DECIDIR
 DIAS_COMPRESION = 20                         # dias pasados validos para la mediana del rango del mismo tipo de franja
 DIAS_COMPRESION_MIN = 10                     # dias validos minimos; con menos, ratio_compresion = NaN  # POR DECIDIR
 CORTE_COMPRESION = 0.75                      # ratio por debajo del cual la franja de referencia se considera comprimida  # POR DECIDIR

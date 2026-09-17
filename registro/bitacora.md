@@ -145,3 +145,113 @@ son elecciones de metodo, no parametros libres.
 
 Punto de control B: `motor/franjas.py`, `motor/eventos.py`,
 `motor/resultados.py` y `motor/moderadores.py` con su bateria de tests.
+
+---
+
+## Punto de control B — Motor de eventos
+
+- **Fecha**: 2026-09-16
+- **Commit**: pendiente (se completa en el commit siguiente)
+- **Tests**: `pytest` -> 68 pasan, 0 fallan, 0 avisos.
+
+### Que se hizo
+
+Cuatro modulos del motor, mas un orquestador `motor.preparar()` que encadena
+todo: barras -> calendario -> sigma -> eventos -> retornos -> moderadores.
+
+- **`franjas.py`**: la clase `Barras` (datos en arrays, con el instante de
+  CIERRE de cada barra ya calculado), la numeracion de `sesiones` de mercado y
+  el `calendario` de franjas. El calendario incluye TODAS las franjas del
+  periodo, tengan datos o no, para que la referencia de la franja k sea siempre
+  su vecina y una franja ausente invalide la siguiente en vez de colarse.
+  Los minutos esperados de cada franja salen de su inicio y su fin reales, no
+  de un 360 fijo: el dia del cambio de hora una franja dura 5 o 7 horas.
+- **`eventos.py`**: deteccion de ruptura, sostenida y reingreso, con un bucle
+  por franja y numpy adentro. Para "el primer minuto que cumple X" se usa
+  `np.argmax` sobre la mascara, verificando antes que haya algun True.
+- **`resultados.py`**: `sigma_por_franja` y `agregar_retornos`. El corazon es
+  `_ventana_pasada`, que resume las ultimas N filas VALIDAS anteriores a cada
+  fila, con el corrimiento explicito. Es la defensa contra la trampa del
+  `rolling()` de pandas, que incluye la fila actual.
+- **`moderadores.py`**: los cuatro moderadores de H3 y H4, todos con
+  informacion anterior al evento.
+
+### Hallazgo: un hueco en la regla de cierres de mercado
+
+Al escribir el test del lunes aparecio un caso que la regla no cubria. La
+comparacion "la referencia y la franja k comparten sesion" detecta un cierre
+ENTRE las dos franjas, pero NO uno que ocurra DENTRO de la franja de
+referencia antes de su primera barra. Es exactamente el caso del domingo: la
+franja [18,24) figura completa en el calendario, pero sus datos empiezan recien
+cuando el mercado abre, ya avanzada la franja.
+
+Se agrego al calendario la columna `hueco_inicial` (minutos entre el inicio de
+la franja y su primera barra) y ahora la referencia tambien exige
+`hueco_inicial <= HUECO_CIERRE_MIN`. Con la cobertura al 90% el caso quedaba
+tapado igual, pero la regla no puede depender de que nadie baje ese umbral.
+
+### Verificacion de la consecuencia anunciada en el punto A
+
+Sobre 12 semanas simuladas con fines de semana de verdad (cierre viernes 21:00
+UTC, apertura domingo 21:00 UTC), rupturas detectadas por dia y franja:
+
+| dia | franja 0 | franja 1 | franja 2 | franja 3 |
+|-----|---------:|---------:|---------:|---------:|
+| lun | **0**    | 10       | 9        | 8        |
+| mar | 10       | 8        | 7        | 9        |
+| mie | 9        | 10       | 10       | 9        |
+| jue | 8        | 10       | 10       | 9        |
+| vie | 10       | 9        | 9        | 8        |
+| sab | 0        | 0        | 0        | 0        |
+| dom | 0        | 0        | 0        | **0**    |
+
+Sale tal cual se anuncio: la franja [0,6) del lunes y la [18,24) del domingo no
+generan eventos, y el resto del calendario funciona normal (entre 7 y 10
+rupturas por cada 12 o 13 franjas disponibles). El horizonte `fin_franja` de
+las rupturas del viernes tarde termina siempre a las 21:00 UTC, o sea en el
+cierre y no en el fin nominal de la franja.
+
+### Decisiones de esta etapa
+
+1. **Modulo nuevo `motor/tiempo.py`** (ya venia del ajuste anterior) y **una
+   funcion unica de precio**: `resultados.precio_en`. Todo el motor pregunta
+   "cual es el precio en el instante t" por ese solo camino, que aplica la
+   regla de la barra t - 1 minuto y la tolerancia.
+2. **`TOLERANCIA_PRECIO_MIN = 2`** (# POR DECIDIR): se movio a config, porque
+   afecta resultados. Se aplica tanto al precio del evento como al precio a
+   t + h. Consecuencia declarada: la sostenida con la regla `fuera_en_t_mas_m`
+   puede decidirse con una barra de hasta 2 minutos antes de t + M si la exacta
+   falta.
+3. **`DIA_PREVIO_MIN_COBERTURA = 0.50`** (# POR DECIDIR): parametro nuevo. Sin
+   el, `cerca_extremo_previo` de todos los lunes se comparaba contra el domingo,
+   que trae una o dos horas de mercado. Con el, esos eventos quedan en NaN.
+4. **Desempate de la barra ambigua**: si el grupo apagara
+   `EXCLUIR_BARRA_AMBIGUA`, gana el lado que penetro mas, medido en veces el
+   umbral de ese lado. Queda declarado en el docstring y probado.
+5. **"Dentro" del extremo es estricto**: para una ruptura alcista, el reingreso
+   exige `mid_close < H`. Un cierre exactamente en H se considera todavia
+   afuera.
+6. **Los moderadores binarios van como 1.0 / 0.0 / NaN**, no como booleanos,
+   para que las regresiones puedan descartar las filas incompletas.
+
+### Rendimiento medido
+
+| muestra | minutos | franjas | eventos | tiempo | memoria de los datos |
+|---------|--------:|--------:|--------:|-------:|---------------------:|
+| 1 ano   | 525.600 | 1.460   | 2.643   | 0,35 s | 38 MB |
+| 3 anos  | 1.576.800 | 4.380 | 8.107   | 0,88 s | 114 MB |
+
+Extrapolado, 13 anos son unos 4 segundos de pipeline y cerca de 490 MB de datos
+por mercado. El tiempo no sera el problema en el punto E; la memoria si, y por
+eso el tope de procesos en paralelo ya esta anotado como pendiente.
+
+### Pendientes al cerrar el punto B
+
+- Sigue todo lo del punto A, mas los dos parametros nuevos: ya son **18**
+  marcados `# POR DECIDIR`.
+- Para el punto D: con `UMBRAL_PIPS = 1.0` rompe cerca del 85% de las franjas y
+  solo un 17% de esas rupturas aguanta 15 minutos sin reingresar. Son numeros
+  de un paseo aleatorio, no del EUR/USD, pero conviene que el grupo los mire al
+  fijar el umbral y M.
+- Para el punto E: evaluar guardar los precios en float32 o generar el mercado
+  por tramos, para que 13 anos no ocupen medio giga por proceso.
