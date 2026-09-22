@@ -1,0 +1,4 @@
+# Los PDF de los papers no se suben al repositorio: pesan y tienen derechos de
+# autor. La lista de papers vive en Notion y en el README de esta carpeta.
+*.pdf
+*.zip
