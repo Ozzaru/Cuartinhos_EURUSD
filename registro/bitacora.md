@@ -716,7 +716,7 @@ de un 15% y es un cambio de dos lineas.
 ## Punto D (segunda parte) — Dos arreglos y una hipotesis descartada
 
 - **Fecha**: 2026-09-23
-- **Commit**: pendiente (se completa en el commit siguiente)
+- **Commit**: `c6b6575` (`punto D (2a parte): anuncios en dia habil, tercio de franja e hipotesis descartada`)
 - **Tests**: `pytest` -> 140 pasan, 0 fallan, 0 avisos.
 
 ### Decisiones que fijo el grupo
