@@ -474,12 +474,33 @@ tener evidencia propia.
    implementa, y la usan por igual los eventos y los minutos candidatos.
 
 **Primera evidencia.** Sobre 2 anos simulados con el calendario de anuncios del
-punto D, el modo "ventana" deja 15 eventos tratados y el modo "franja" 101. Un
-caso ilustra por que el cambio era necesario: un reingreso con solo 2 eventos
-tratados daba `t = 5,78`, que con la regresion hubiera sido un "hallazgo"
-clarisimo; con la nula de aleatorizacion su p-valor es 0,16. Con 2 anos de
-datos ninguna prueba llega a 30 dias tratados, asi que todas quedan
+punto D, el modo "ventana" deja 15 eventos tratados y el modo "franja" 101. Con
+2 anos de datos ninguna prueba llega a 30 dias tratados, asi que todas quedan
 descriptivas; con los 13 anos del tramo de desarrollo si deberian llegar.
+
+#### EJEMPLO PARA EL INFORME N1 (guardar)
+
+El caso que resume por que hubo que cambiar el metodo. Mercado simulado sin
+ningun patron, o sea donde por construccion NO hay nada que encontrar. Tipo
+reingreso, horizonte 30 minutos, modo "ventana":
+
+| dato | valor |
+|---|---|
+| eventos "con anuncio" | **2** |
+| dias distintos con evento tratado | **2** |
+| eventos "sin anuncio" | 1.572 |
+| diferencia de promedios | 0,88 |
+| estadistico t | **5,78** |
+| p-valor por regresion (lo que se hacia antes) | del orden de 1e-8 |
+| **p-valor por aleatorizacion (lo que se hace ahora)** | **0,16** |
+
+Un t de 5,78 en una regresion es un hallazgo espectacular, del tipo que se
+pone en el resumen de una tesis. Aqui esta calculado sobre DOS observaciones
+de DOS dias, en datos donde no hay nada que descubrir. La nula por sorteo, que
+compara esos 2 eventos contra otros minutos de anuncio igual de volatiles, lo
+deja en 0,16: ni cerca de significativo. La moraleja para el informe: el
+problema no era el tamano del efecto sino el error estandar, y no se ve mirando
+el resultado, solo se ve corriendo el control negativo.
 
 **Lo que tiene que agregar el reporte del punto D** (pedido del grupo):
 - Tasa de falsos positivos por familia, con intervalo binomial al 95%:
@@ -504,3 +525,188 @@ alrededor del 26 de septiembre. Si una corrida amenaza con pasar de una hora,
 se reducen repeticiones o duraciones, se dice en el informe con su error de
 Monte Carlo, y se sigue. Los controles no se sacrifican: se sacrifica tamano
 de muestra.
+
+---
+
+## Punto de control D — Mercado simulado y control negativo
+
+- **Fecha**: 2026-09-22
+- **Commit**: pendiente (se completa en el commit siguiente)
+- **Tests**: `pytest` -> 129 pasan, 0 fallan, 0 avisos.
+
+### El mercado simulado (`simulacion/mercado.py`)
+
+Un mercado donde, por construccion, NO hay nada que descubrir. Ningun
+ingrediente mira precios pasados para decidir hacia donde ir.
+
+Lo que SI tiene, porque son cosas que el EUR/USD tiene de verdad y que podrian
+confundir al motor si faltaran:
+
+- semana de mercado de domingo 17:00 a viernes 17:00, hora de Nueva York;
+- volatilidad que cambia con la hora de Londres;
+- regimen de volatilidad lento (AR(1) diario), para que los deciles de
+  volatilidad de la nula tengan de donde agarrarse;
+- spread bid-ask, triple entre las 21:00 y las 23:00 UTC;
+- anuncios macro que multiplican la volatilidad por tres durante cinco
+  minutos, SIN empujar el precio hacia ningun lado.
+
+Lo que NO tiene: tendencia, reversion, memoria de volatilidad intradia ni
+ninguna relacion entre el pasado y la direccion futura.
+
+**Calibracion verificada** (1 ano, semilla 7): volatilidad anual medida 7,01%
+contra 7% pedido; el perfil horario medido correlaciona 0,99 con el pedido;
+spread medio 0,233 pips, que es exactamente lo que dan 0,2 pips durante 22
+horas y 0,6 durante 2.
+
+**Detalle declarado**: la regla del IPC es "dia 12 de cada mes a las 13:30
+UTC", y el dia 12 a veces cae sabado o domingo. Se dejo la regla tal cual esta
+escrita en vez de correrla al dia habil siguiente. Consecuencia medida: 11 de
+36 anuncios de IPC en 3 anos caen en minutos cerrados y no afectan a nadie. Si
+el grupo prefiere moverlos al dia habil siguiente, es un cambio de dos lineas.
+
+### Como se corre
+
+```
+python -m experimentos.control_negativo --piloto     mide tiempo y memoria
+python -m experimentos.control_negativo              corrida completa
+```
+
+**Piloto medido en este equipo** (20 nucleos, 16,8 GB de RAM):
+
+| bloque | duracion del mercado | tiempo por mercado | pico de memoria |
+|---|---|---|---|
+| corto | 3 anos | 9,5 s | ~0,37 GB |
+| largo | 13 anos, H4 con dos modos | 37,7 s | ~0,97 GB |
+
+El numero de procesos en paralelo lo decide `experimentos/recursos.py` a partir
+de la memoria DISPONIBLE, no de los nucleos: con 13 anos por proceso, llenar la
+memoria haria que el sistema empiece a usar disco y la corrida "paralela"
+terminaria tardando mas que la secuencial. En esta maquina habia alrededor de
+1 GB libre, asi que la corrida uso 2 procesos y no 20.
+
+La corrida completa (50 mercados de 3 anos mas 15 de 13 anos, con 1000
+repeticiones de la nula y Romano-Wolf) tardo entre **11,4 y 14,9 minutos**
+segun cuanto mas estuviera haciendo la maquina, bien por debajo del limite de
+una hora. Se corrio dos veces y dio exactamente los mismos numeros, que es la
+comprobacion de que las semillas hacen su trabajo.
+
+### Resultados del control negativo
+
+**El efecto medio queda en cero.** Entre -0,0065 y +0,0087 segun tipo y
+horizonte, con errores de Monte Carlo de 0,003 a 0,005. No hay nada que
+distinga esos numeros del cero, que es exactamente lo que se buscaba.
+
+**Tasa de falsos positivos por familia** (50 mercados, alfa = 5%):
+
+| familia | pruebas | tasa bruta | IC 95% | mercados con algun rechazo | IC 95% |
+|---|---:|---:|---|---:|---|
+| moderadores (24 pruebas) | 1.200 | 0,047 | [0,036, 0,060] | 0,04 | [0,011, 0,135] |
+| principal (8 pruebas) | 400 | 0,070 | [0,049, 0,099] | 0,06 | [0,021, 0,162] |
+
+Los dos intervalos contienen el 5%, asi que el control **pasa**. Holm y
+Romano-Wolf dan exactamente la misma tasa por familia (0,04 y 0,06).
+
+**Un numero para vigilar.** La familia principal dio 0,070 y su intervalo
+apenas alcanza a contener el 5% (el borde inferior es 0,049). El promedio de
+sus p-valores es 0,462 en vez de 0,5, y en el histograma se nota una leve
+inclinacion hacia la izquierda. Mirando celda por celda, la unica que se
+despega es **reingreso a 120 minutos: 0,16** (8 rechazos de 50); las otras
+siete van de 0,02 a 0,10. Con 50 mercados no alcanza para saber si es una
+miscalibracion real o mala suerte de esa celda. La familia de moderadores, en
+cambio, esta impecable: promedio de p-valores 0,50 y tasas de 0,035, 0,043 y
+0,063 por coeficiente.
+
+**Hipotesis sobre el origen**, sin tocar nada todavia: la nula empareja por
+indice de franja, dia de semana y decil de volatilidad, pero NO por la posicion
+del minuto dentro de la franja. Los eventos reales no caen en cualquier minuto
+(una ruptura tiende a ocurrir cuando el precio ya se movio), mientras que los
+minutos sorteados se reparten por toda la franja. A horizontes largos esa
+diferencia pesa mas, que es coherente con que la celda peor sea la de 120
+minutos. Opciones si el grupo quiere cerrarlo: (a) correr 50 mercados mas para
+ver si el 0,16 se sostiene; (b) agregar la hora del dia como cuarta variable de
+emparejamiento; (c) dejarlo documentado como limitacion. **No se cambio nada**:
+el control pasa segun el criterio acordado.
+
+### H4: la inferencia de aleatorizacion funciono
+
+Comparacion con lo que habia antes, sobre mercados sin ningun patron:
+
+| metodo | tasa de falsos positivos de `noticia` |
+|---|---:|
+| coeficiente en la regresion (punto C) | **0,250** |
+| aleatorizacion estudentizada (ahora) | **0,067 a 0,100** |
+
+Se acabo el problema grande. Lo que queda esta dentro del ruido: con 60 pruebas
+por celda, el error de Monte Carlo es de 2,8 puntos, asi que un 0,083 no se
+distingue de un 0,05.
+
+**Y no hay gradiente con los dias tratados.** Esta es la tabla que importa, por
+modo y tipo, sobre los 15 mercados de 13 anos:
+
+| modo | tipo | dias tratados (medio, min-max) | tasa estudentizado | tasa sin estudentizar |
+|---|---|---|---:|---:|
+| ventana | sostenida | 21 (14-32) | 0,100 | 0,083 |
+| ventana | reingreso | 58 (39-73) | 0,083 | 0,083 |
+| franja | sostenida | 100 (85-118) | 0,083 | 0,067 |
+| franja | reingreso | 273 (259-284) | 0,083 | 0,083 |
+
+Con 21 dias tratados rechaza igual que con 273. **La tabla por tramos del
+reporte enganaba**: cada combinacion de modo y tipo cae casi entera en un solo
+tramo, asi que ahi el tamano de la muestra tratada y el tipo de evento quedan
+confundidos y las diferencias entre tramos (0,125 contra 0,068) son ruido.
+
+**Conclusion sobre `MIN_DIAS_TRATADOS`**: la evidencia NO respalda subirlo a
+100, y tampoco confirma que 30 sea el numero correcto. En el rango observado
+(14 a 284 dias tratados) la calibracion no cambia. Lo que sigue sin probarse es
+el rango de menos de 14 dias, que es justo donde el metodo viejo se rompia y
+donde ningun mercado de 13 anos llego a caer. Propuesta para el grupo:
+**bajar el minimo a 15 o incluso sacarlo**, porque su justificacion original
+era el error estandar agrupado y ese ya no se usa; o dejarlo en 30 como margen
+de prudencia, sabiendo que con eso la prueba sobre sostenidas nace descriptiva
+(ver abajo).
+
+**Estudentizar no cambio nada medible.** Las dos versiones dan practicamente lo
+mismo (0,083 contra 0,083, 0,100 contra 0,083). Es esperable: la ventaja que
+documentan MacKinnon y Webb aparece con MUY pocos grupos tratados y
+heterogeneos, y aqui ninguna celda bajo de 14 dias. Se mantiene la version
+estudentizada como principal, tal como quedo pre-registrada, pero conviene
+decir en la tesis que en este banco de pruebas las dos se comportaron igual.
+
+### Cuanta muestra va a haber de verdad (lo que se pregunto)
+
+Promedio por ano simulado, sobre los 15 mercados de 13 anos:
+
+| modo | tipo | eventos/ano | tratados/ano | dias tratados/ano | proyectado a 13 anos |
+|---|---|---:|---:|---:|---:|
+| ventana | sostenida | 311 | 1,7 | **1,7** | **~21 dias** |
+| ventana | reingreso | 701 | 4,6 | 4,6 | ~58 dias |
+| franja | sostenida | 311 | 8,0 | 8,0 | ~100 dias |
+| franja | reingreso | 701 | 21,5 | 21,5 | ~273 dias |
+
+**Respuesta directa: si, con el modo principal "ventana" la prueba de H4 sobre
+sostenidas nace descriptiva.** Da unos 21 dias tratados en 13 anos (rango
+observado 14 a 32), por debajo del minimo de 30. La de reingresos si pasa, con
+unos 58.
+
+Esto invierte el papel de los dos modos: el que se penso como robustez
+("franja") es el unico que deja muestra comoda para las dos pruebas. Vale la
+pena que el grupo lo discuta antes de pre-registrar, porque cambiar de modo
+principal DESPUES de ver los datos reales seria exactamente lo que un
+pre-registro busca impedir. Decidirlo ahora, con datos simulados, es legitimo.
+
+### Detalle del calendario simulado
+
+De 36 anuncios de IPC en 3 anos, 11 caen en minutos cerrados porque el dia 12
+cayo sabado o domingo. Se mantuvo la regla literal del enunciado. Si el grupo
+prefiere correrlos al dia habil siguiente, sube la muestra tratada de H4 cerca
+de un 15% y es un cambio de dos lineas.
+
+### Pendientes al cerrar el punto D
+
+- **Decidir `MIN_DIAS_TRATADOS`** con la evidencia de arriba (15, 30 o sin
+  minimo).
+- **Decidir el modo principal de noticia**, sabiendo que "ventana" deja la
+  prueba sobre sostenidas sin muestra.
+- **Decidir si se investiga la celda de reingreso a 120 minutos** (0,16 de
+  falsos positivos) o se documenta como limitacion.
+- Sigue todo lo anterior, incluidos los 19 parametros `# POR DECIDIR`.

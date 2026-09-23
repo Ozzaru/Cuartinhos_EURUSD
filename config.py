@@ -13,6 +13,23 @@ Marcas usadas en los comentarios:
                               por sigma_ref, asi que la escala no importa).
 """
 
+from types import SimpleNamespace
+
+
+def copia(**cambios):
+    """
+    Una copia de esta configuracion con los cambios que se pidan.
+
+    Sirve para correr variantes (otro UMBRAL_PIPS, otro NOTICIA_MODO) sin tocar
+    el archivo ni contaminar al resto del programa, y para pasar la
+    configuracion a procesos paralelos, que necesitan algo que se pueda
+    empaquetar y un modulo no lo es.
+    """
+    base = {k: v for k, v in globals().items() if k.isupper()}
+    base.update(cambios)
+    return SimpleNamespace(**base)
+
+
 # =============================================================================
 #  1. CORTES DE MUESTRA
 #     El tramo SELLADO no se descarga ni se mira hasta la etapa final.
