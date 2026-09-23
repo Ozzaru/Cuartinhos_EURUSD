@@ -23,7 +23,7 @@ queda NaN. Nunca se mira hacia adelante para rellenar.
 import numpy as np
 import pandas as pd
 
-from . import tiempo
+from . import franjas, tiempo
 
 
 def precio_en(barras, t_ns, cfg, tolerancia_min=None):
@@ -139,11 +139,6 @@ def mediana_rango_pasada(cal, cfg):
     return mediana
 
 
-def _fin_de_sesion(barras):
-    """Para cada barra, la posicion de la ultima barra de su misma sesion."""
-    return np.searchsorted(barras.sesion, barras.sesion, side="right") - 1
-
-
 def agregar_retornos(barras, cal, eventos, cfg):
     """
     Agrega una columna de retorno normalizado por cada horizonte.
@@ -197,7 +192,7 @@ def calcular_retornos(barras, cal, cfg, t_ns, direccion, sigma, pos_franja):
     sesion_0 = np.where(j_t >= 0, barras.sesion[np.maximum(j_t, 0)], -1)
 
     # Horizonte variable: hasta el fin de la franja o hasta el cierre de mercado.
-    fin_sesion = _fin_de_sesion(barras)
+    fin_sesion = franjas.fin_de_sesion(barras)
     i1 = cal["i1"].to_numpy()[pos_franja]
     ultima = np.minimum(np.where(j_t >= 0, fin_sesion[np.maximum(j_t, 0)], 0), i1 - 1)
     t_fin = np.where(j_t >= 0, barras.cierre_ns[np.maximum(ultima, 0)], 0)

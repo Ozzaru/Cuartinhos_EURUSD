@@ -117,12 +117,23 @@ def test_el_calendario_de_anuncios_tiene_los_horarios_declarados(mercado_corto):
     assert (empleo.dt.day <= 7).all(), "primer viernes del mes"
     assert ((empleo.dt.hour == 13) & (empleo.dt.minute == 30)).all()
 
+    # El IPC sale el dia 12, salvo que caiga en fin de semana: ahi se corre al
+    # siguiente dia con mercado abierto, como en la realidad.
     ipc = noticias[noticias["tipo"] == "ipc"]["t_utc"]
-    assert (ipc.dt.day == 12).all()
+    assert (ipc.dt.day >= 12).all() and (ipc.dt.day <= 15).all()
+    assert (ipc.dt.dayofweek < 5).all(), "ningun IPC queda en fin de semana"
+    assert (ipc.dt.day == 12).sum() >= 6, "la mayoria si cae el dia 12"
 
     fomc = noticias[noticias["tipo"] == "fomc"]["t_utc"]
     assert (fomc.dt.dayofweek == 2).all(), "fomc es miercoles"
     assert (fomc.dt.hour == 19).all()
+
+
+def test_todos_los_anuncios_caen_en_minutos_con_mercado_abierto(mercado_corto):
+    # Antes se perdian los anuncios de fin de semana, que eran alrededor de un
+    # 15% de la muestra tratada de H4.
+    _, datos, noticias = mercado_corto
+    assert noticias["t_utc"].isin(datos.index).all()
 
 
 def test_los_anuncios_suben_la_volatilidad_pero_no_empujan_el_precio(mercado_corto):

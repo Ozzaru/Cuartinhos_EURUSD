@@ -107,7 +107,8 @@ NULA_DECILES_VOL = 10                        # numero de grupos de volatilidad u
 #  8. INFERENCIA Y PRUEBAS MULTIPLES
 # =============================================================================
 ALFA = 0.05                                  # nivel de significancia
-CORRECCION_PRINCIPAL = "holm"                # "holm" (principal) o "romano_wolf" (secundaria)  # POR DECIDIR
+CORRECCION_PRINCIPAL = "holm"                # provisional; se decide en el punto E comparando POTENCIA, no tamano  # POR DECIDIR
+REPORTAR_AMBAS_CORRECCIONES = True           # True = toda tabla trae Holm y Romano-Wolf, para no elegir a ciegas
 TIPO_ERRORES = "cluster"                     # "cluster" (agrupado por fecha de Londres) o "HAC" (Newey-West)
 RW_REPETICIONES = 1000                       # remuestreos de dias del bootstrap de Romano-Wolf
 
@@ -136,7 +137,7 @@ FAMILIA_H4 = [
     for tipo in ("sostenida", "reingreso")
     for h in HORIZONTES
 ]
-MIN_DIAS_TRATADOS = 30                       # dias distintos con evento "con anuncio" para que la prueba de H4 entre a la familia  # POR DECIDIR
+MIN_DIAS_TRATADOS = 15                       # dias distintos con evento "con anuncio" para que la prueba de H4 entre a la familia  # POR DECIDIR
 H4_ESTUDENTIZADO = True                      # True = el estadistico principal es el t; la version sin estudentizar se reporta como comparacion
 
 # "ruptura" queda como tipo DESCRIPTIVO: se reporta a dos colas, fuera de las

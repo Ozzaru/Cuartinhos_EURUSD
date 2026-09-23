@@ -5,10 +5,15 @@ NULA — hipotesis nula emparejada.
 La pregunta que responde: el retorno promedio despues de los eventos, ise
 parece al de cualquier otro minuto comparable, o es distinto?
 
-"Comparable" significa tres cosas a la vez: el mismo indice de franja, el mismo
-dia de semana y el mismo decil de volatilidad. Sin emparejar, un efecto podria
-salir solo porque los eventos se concentran, por ejemplo, en la franja de la
-tarde de los miercoles movidos.
+"Comparable" significa cuatro cosas a la vez: el mismo indice de franja, el
+mismo dia de semana, el mismo decil de volatilidad y el mismo TERCIO de la
+franja. Sin emparejar, un efecto podria salir solo porque los eventos se
+concentran, por ejemplo, en la franja de la tarde de los miercoles movidos.
+
+El tercio se agrego despues de ver el control negativo: los eventos no ocurren
+en cualquier momento de su franja, y como la volatilidad depende mucho de la
+hora, comparar un evento del principio de la franja contra un minuto del final
+era comparar cosas distintas.
 
 Como funciona, en simple:
   1. Se arma el conjunto de minutos CANDIDATOS: todos los minutos de franjas que
@@ -36,6 +41,7 @@ import numpy as np
 import pandas as pd
 
 from . import eventos as mod_eventos
+from . import franjas as mod_franjas
 from . import inferencia as mod_inferencia
 from . import moderadores as mod_moderadores
 from . import resultados
@@ -93,6 +99,7 @@ def preparar_candidatos(barras, cal, cfg, sigma=None, noticias=None):
         "idx_franja": cal["idx_franja"].to_numpy()[pos],
         "dia_semana": cal["dia_semana"].to_numpy()[pos],
         "grupo_vol": grupo_vol[pos],
+        "tercio": mod_franjas.tercio_de_franja(barras.cierre_ns, pos, cal),
         "sirve": sirve_minuto,
         "retornos": {h: columnas[f"ret_{h}"] for h in cfg.HORIZONTES},
         "grupo_vol_por_franja": grupo_vol,
@@ -101,10 +108,31 @@ def preparar_candidatos(barras, cal, cfg, sigma=None, noticias=None):
     }
 
 
-def _clave(idx_franja, dia_semana, grupo_vol):
-    """Un entero unico por combinacion de franja, dia y decil."""
-    return (np.asarray(idx_franja) * 1000 + np.asarray(dia_semana) * 100
-            + np.asarray(grupo_vol))
+def claves_de_eventos(eventos, cal, candidatos):
+    """
+    La clave de emparejamiento de cada evento: franja, dia, decil y tercio.
+
+    El decil y el tercio se calculan aqui y no en el motor a proposito. El
+    decil necesita la distribucion de toda la muestra y el tercio es una
+    herramienta de comparacion: ninguno de los dos es una variable que
+    explique nada, solo sirven para elegir con quien comparar.
+    """
+    pos_franja = eventos["pos_franja"].to_numpy(int)
+    return _clave(eventos["idx_franja"].to_numpy(int),
+                  eventos["dia_semana"].to_numpy(int),
+                  candidatos["grupo_vol_por_franja"][pos_franja],
+                  mod_franjas.tercio_de_franja(
+                      eventos["t_evento_ns"].to_numpy(np.int64), pos_franja, cal))
+
+
+def _clave(idx_franja, dia_semana, grupo_vol, tercio):
+    """
+    Un entero unico por combinacion de franja, dia, decil de volatilidad y
+    tercio de la franja. Son las cuatro cosas en las que un minuto candidato
+    tiene que parecerse al evento real.
+    """
+    return (np.asarray(idx_franja) * 100000 + np.asarray(dia_semana) * 10000
+            + np.asarray(grupo_vol) * 100 + np.asarray(tercio))
 
 
 def _sortear(rng, pools, claves_evento, franja_evento, pos_franja_candidato,
@@ -167,7 +195,6 @@ def correr(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
     filas, distribuciones = [], {}
     rng = np.random.default_rng(semilla)
 
-    grupo_por_franja = candidatos["grupo_vol_por_franja"]
     pos_cand = candidatos["pos_franja"]
 
     # El bucle va por horizonte y despues por tipo: los grupos de minutos
@@ -186,9 +213,7 @@ def correr(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
                 continue
 
             franja_evento = usables["pos_franja"].to_numpy(int)
-            claves = _clave(usables["idx_franja"].to_numpy(int),
-                            usables["dia_semana"].to_numpy(int),
-                            grupo_por_franja[franja_evento])
+            claves = claves_de_eventos(usables, cal, candidatos)
 
             indices, usable = _sortear(rng, pools, claves, franja_evento, pos_cand,
                                        repeticiones)
@@ -258,7 +283,6 @@ def correr_h4(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
         candidatos = preparar_candidatos(barras, cal, cfg, sigma=sigma, noticias=noticias)
 
     rng = np.random.default_rng(semilla)
-    grupo_por_franja = candidatos["grupo_vol_por_franja"]
     pos_cand = candidatos["pos_franja"]
     tratado_cand = candidatos["tratado"]
     dia_cand = candidatos["dia_codigo"]
@@ -279,14 +303,16 @@ def correr_h4(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
             del_tipo = tabla_eventos[tabla_eventos["tipo"] == tipo]
             usables = del_tipo[np.isfinite(del_tipo[columna].to_numpy(float))
                                & np.isfinite(del_tipo["noticia"].to_numpy(float))]
-            filas.append(_una_prueba_h4(rng, usables, columna, tipo, h, ret_cand,
-                                        pools, grupo_por_franja, pos_cand, dia_cand,
+            claves = (claves_de_eventos(usables, cal, candidatos)
+                      if len(usables) else np.array([], dtype=int))
+            filas.append(_una_prueba_h4(rng, usables, claves, columna, tipo, h,
+                                        ret_cand, pools, pos_cand, dia_cand,
                                         repeticiones))
     return pd.DataFrame(filas)
 
 
-def _una_prueba_h4(rng, usables, columna, tipo, h, ret_cand, pools,
-                   grupo_por_franja, pos_cand, dia_cand, repeticiones):
+def _una_prueba_h4(rng, usables, claves, columna, tipo, h, ret_cand, pools,
+                   pos_cand, dia_cand, repeticiones):
     """Una celda de H4: un tipo de evento y un horizonte."""
     vacia = {"tipo": tipo, "horizonte": h, "cola": "mayor", "n_con": 0, "n_sin": 0,
              "dias_tratados": 0, "diferencia": np.nan, "error": np.nan,
@@ -297,9 +323,6 @@ def _una_prueba_h4(rng, usables, columna, tipo, h, ret_cand, pools,
 
     tratado = usables["noticia"].to_numpy(float)
     franja_evento = usables["pos_franja"].to_numpy(int)
-    claves = _clave(usables["idx_franja"].to_numpy(int),
-                    usables["dia_semana"].to_numpy(int),
-                    grupo_por_franja[franja_evento])
 
     # Cada evento se sortea dentro de su propio conjunto: tratados con tratados.
     indices = np.full((repeticiones, len(usables)), -1, dtype=np.int64)
@@ -352,7 +375,8 @@ def _armar_pools(candidatos, disponible):
     posiciones = np.flatnonzero(disponible)
     claves = _clave(candidatos["idx_franja"][posiciones],
                     candidatos["dia_semana"][posiciones],
-                    candidatos["grupo_vol"][posiciones])
+                    candidatos["grupo_vol"][posiciones],
+                    candidatos["tercio"][posiciones])
     orden = np.argsort(claves, kind="stable")
     claves_ord, posiciones_ord = claves[orden], posiciones[orden]
     cortes = np.flatnonzero(np.diff(claves_ord)) + 1

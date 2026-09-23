@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config                                              # noqa: E402
 import motor                                               # noqa: E402
 from experimentos import recursos                          # noqa: E402
-from motor import inferencia, moderadores, nula            # noqa: E402
+from motor import inferencia, nula                         # noqa: E402
 from simulacion import mercado                             # noqa: E402
 
 CARPETA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -227,6 +227,59 @@ def resumen_h4(tabla, cfg):
     return pd.DataFrame(filas)
 
 
+def umbral_calibrado(pruebas, cfg, columna="p_holm", remuestreos=2000, semilla=7):
+    """
+    PROPUESTA, no se aplica: el corte de p que dejaria cada familia en 5%.
+
+    Se calibra POR FAMILIA y no celda por celda. La razon es de precision: una
+    celda tiene 50 mercados detras y un corte estimado con 50 datos seria pura
+    suerte; la familia entera al menos reune todas sus pruebas en un solo
+    numero por mercado.
+
+    Como se calcula: por cada mercado se toma el p-valor corregido MAS CHICO de
+    la familia. Si el metodo estuviera calibrado, solo el 5% de los mercados
+    tendria ese minimo por debajo de 0,05. El corte calibrado es el percentil 5
+    de esos minimos.
+
+    El error se estima remuestreando MERCADOS con reemplazo, que es la unidad
+    independiente aqui.
+    """
+    rng = np.random.default_rng(semilla)
+    filas = []
+    for familia, bloque in pruebas.groupby("familia"):
+        minimos = bloque.groupby("mercado")[columna].min().to_numpy(float)
+        minimos = minimos[np.isfinite(minimos)]
+        if len(minimos) < 5:
+            continue
+        corte = float(np.quantile(minimos, cfg.ALFA))
+        sorteos = rng.integers(0, len(minimos), (remuestreos, len(minimos)))
+        cortes = np.quantile(minimos[sorteos], cfg.ALFA, axis=1)
+        bajo, alto = np.percentile(cortes, [2.5, 97.5])
+        filas.append({
+            "familia": familia, "mercados": len(minimos),
+            "corte_calibrado": corte,
+            "ic95": f"[{bajo:.4f}, {alto:.4f}]",
+            "ancho_ic": float(alto - bajo),
+            "error_mc": float(np.std(cortes, ddof=1)),
+            "tasa_con_alfa_005": float((minimos <= cfg.ALFA).mean()),
+        })
+    return pd.DataFrame(filas)
+
+
+def mercados_necesarios(ancho_actual, mercados_actuales, ancho_objetivo):
+    """
+    Cuantos mercados harian falta para que el intervalo del corte calibrado
+    baje a `ancho_objetivo`.
+
+    El ancho de un percentil estimado se encoge con la raiz del numero de
+    observaciones, asi que para partirlo a la mitad hay que cuadruplicar los
+    mercados.
+    """
+    if not (ancho_actual > 0 and ancho_objetivo > 0):
+        return np.nan
+    return int(np.ceil(mercados_actuales * (ancho_actual / ancho_objetivo) ** 2))
+
+
 def grafico_p_valores(tabla, ruta):
     """Histograma de p-valores brutos: deberia verse aproximadamente plano."""
     import matplotlib
@@ -291,8 +344,13 @@ def main():
     analizador.add_argument("--procesos", type=int, default=None)
     analizador.add_argument("--solo-reporte", action="store_true",
                             help="rehace el markdown y el grafico desde los CSV ya guardados")
+    analizador.add_argument("--archivar", action="store_true",
+                            help="guarda los resultados actuales como 'previo' para comparar")
     opciones = analizador.parse_args()
 
+    if opciones.archivar:
+        _archivar()
+        return
     if opciones.solo_reporte:
         _rehacer_reporte()
         return
@@ -332,6 +390,87 @@ def main():
     guardar(pruebas, rupturas, h4, conteos, minutos, n_cortos, opciones.largos,
             anios_largos, repeticiones, con_rw)
     print(f"\nListo en {minutos:.1f} minutos. Reportes en resultados/")
+
+
+def _archivar():
+    """
+    Guarda los resultados actuales con el sufijo `_previo`.
+
+    Sirve para comparar una version del metodo contra la siguiente en el mismo
+    reporte, en vez de citar numeros de memoria.
+    """
+    import shutil
+    copiados = []
+    for nombre in ("control_negativo.csv", "control_negativo_h4.csv"):
+        origen = os.path.join(CARPETA, nombre)
+        if os.path.exists(origen):
+            destino = origen.replace(".csv", "_previo.csv")
+            shutil.copyfile(origen, destino)
+            copiados.append(os.path.basename(destino))
+    print("Archivado:", ", ".join(copiados) if copiados else "no habia nada que archivar")
+
+
+def _comparacion(pruebas, h4, cfg):
+    """
+    Tabla lado a lado contra la corrida anterior, si esta archivada.
+
+    Devuelve el texto en markdown, o una cadena vacia si no hay con que
+    comparar.
+    """
+    ruta_p = os.path.join(CARPETA, "control_negativo_previo.csv")
+    ruta_h = os.path.join(CARPETA, "control_negativo_h4_previo.csv")
+    if not (os.path.exists(ruta_p) and os.path.exists(ruta_h)):
+        return ""
+    antes_p = pd.read_csv(ruta_p)
+    antes_h = pd.read_csv(ruta_h)
+    partes = ["\n## 6. Comparacion contra la corrida anterior\n",
+              "`antes` es sin emparejar por tercio de franja y con los anuncios "
+              "de fin de semana perdidos; `ahora` es con los dos arreglos.\n",
+              "\n### Tasa bruta y promedio de p-valores, por familia\n"]
+
+    filas = []
+    for familia in sorted(set(pruebas["familia"]) | set(antes_p["familia"])):
+        fila = {"familia": familia}
+        for etiqueta, marco in (("antes", antes_p), ("ahora", pruebas)):
+            bloque = marco[marco["familia"] == familia]
+            p = bloque["p_bruto"].to_numpy(float)
+            p = p[np.isfinite(p)]
+            fila[f"tasa_{etiqueta}"] = float((p <= cfg.ALFA).mean()) if len(p) else np.nan
+            fila[f"p_medio_{etiqueta}"] = float(p.mean()) if len(p) else np.nan
+        filas.append(fila)
+    partes.append(_tabla(pd.DataFrame(filas).round(4)))
+
+    partes.append("\n### La celda que estaba mal: familia principal, celda por celda\n")
+    filas = []
+    for (tipo, h), bloque in pruebas[pruebas["familia"] == "principal"].groupby(
+            ["tipo", "horizonte"]):
+        viejo = antes_p[(antes_p["familia"] == "principal") & (antes_p["tipo"] == tipo)
+                        & (antes_p["horizonte"].astype(str) == str(h))]
+        filas.append({
+            "tipo": tipo, "horizonte": h,
+            "tasa_antes": float((viejo["p_bruto"].to_numpy(float) <= cfg.ALFA).mean())
+            if len(viejo) else np.nan,
+            "tasa_ahora": float((bloque["p_bruto"].to_numpy(float) <= cfg.ALFA).mean()),
+            "p_medio_antes": float(np.nanmean(viejo["p_bruto"].to_numpy(float)))
+            if len(viejo) else np.nan,
+            "p_medio_ahora": float(np.nanmean(bloque["p_bruto"].to_numpy(float))),
+        })
+    partes.append(_tabla(pd.DataFrame(filas).round(4)))
+
+    partes.append("\n### H4, por modo y tipo\n")
+    filas = []
+    for (modo, tipo), bloque in h4.groupby(["modo", "tipo"]):
+        viejo = antes_h[(antes_h["modo"] == modo) & (antes_h["tipo"] == tipo)]
+        filas.append({
+            "modo": modo, "tipo": tipo,
+            "dias_tratados_antes": float(viejo["dias_tratados"].mean()) if len(viejo) else np.nan,
+            "dias_tratados_ahora": float(bloque["dias_tratados"].mean()),
+            "tasa_antes": float((viejo["p_estudentizado"].to_numpy(float) <= cfg.ALFA).mean())
+            if len(viejo) else np.nan,
+            "tasa_ahora": float((bloque["p_estudentizado"].to_numpy(float) <= cfg.ALFA).mean()),
+        })
+    partes.append(_tabla(pd.DataFrame(filas).round(4)))
+    return "\n".join(partes)
 
 
 def _rehacer_reporte():
@@ -476,6 +615,40 @@ def _markdown(pruebas, rupturas, h4, conteos, cfg, minutos, n_cortos, n_largos,
     descriptivo = rupturas.groupby("horizonte")[
         ["media_observada", "p_dos_colas"]].mean()
     escribe(_tabla(descriptivo.reset_index().round(4)))
+
+    comparacion = _comparacion(pruebas, h4, cfg)
+    if comparacion:
+        escribe(comparacion)
+
+    escribe("\n## 7. PROPUESTA (no aplicada): corte calibrado por tamano\n")
+    escribe("Si una familia queda por encima del 5%, se puede exigir un corte "
+            "de p mas duro que 0,05, calibrado sobre estos mismos mercados. "
+            "**No esta aplicado en ninguna parte del motor**: es una propuesta "
+            "para que el grupo decida.\n")
+    for metodo, etiqueta in (("p_holm", "Holm"), ("p_romano_wolf", "Romano-Wolf")):
+        if not pruebas[metodo].notna().any():
+            continue
+        tabla = umbral_calibrado(pruebas, cfg, columna=metodo)
+        if len(tabla) == 0:
+            continue
+        escribe(f"\n### Con {etiqueta}\n")
+        escribe(_tabla(tabla.round(5)))
+        faltan = [{"familia": fila["familia"],
+                   "ancho_ic_ahora": round(fila["ancho_ic"], 4),
+                   "mercados_para_ancho_0.01": mercados_necesarios(
+                       fila["ancho_ic"], fila["mercados"], 0.01),
+                   "mercados_para_ancho_0.005": mercados_necesarios(
+                       fila["ancho_ic"], fila["mercados"], 0.005)}
+                  for _, fila in tabla.iterrows()]
+        escribe("\nCuantos mercados harian falta para que ese corte sea firme:\n")
+        escribe(_tabla(pd.DataFrame(faltan)))
+
+    escribe("\n**Limitacion del corte calibrado**, para dejarla escrita: vale "
+            "solo en la medida en que el mercado simulado se parezca al real "
+            "en perfil horario de volatilidad y en frecuencia de eventos y de "
+            "anuncios. Si el EUR/USD de verdad produce, por ejemplo, el doble "
+            "de eventos por franja, el corte calibrado aqui no es el que "
+            "corresponde alla. Por eso es una propuesta y no una decision.\n")
 
     return "\n".join(partes) + "\n"
 

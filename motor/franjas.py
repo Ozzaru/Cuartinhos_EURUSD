@@ -227,7 +227,62 @@ def calendario(barras, cfg):
     cal["sesion"] = np.where(hay, barras.sesion[primera], -1)
     demora = (barras.apertura_ns[primera] - cal["inicio_ns"].to_numpy()) / tiempo.NS_MIN
     cal["hueco_inicial"] = np.where(hay, demora, np.inf)
+
+    # Fin REAL: el que llegue primero entre el fin de la franja y el cierre de
+    # mercado. Es lo que hace que la franja recortada del viernes se mida con
+    # su largo verdadero y no con seis horas de papel.
+    ultima_de_sesion = fin_de_sesion(barras)
+    ultima = np.minimum(ultima_de_sesion[primera], cal["i1"].to_numpy() - 1)
+    ultima = np.maximum(ultima, 0)
+    cal["fin_real_ns"] = np.where(hay,
+                                  np.minimum(barras.cierre_ns[ultima],
+                                             cal["fin_ns"].to_numpy()),
+                                  cal["fin_ns"].to_numpy())
     return cal
+
+
+def fin_de_sesion(barras):
+    """Para cada barra, la posicion de la ultima barra de su misma sesion."""
+    return np.searchsorted(barras.sesion, barras.sesion, side="right") - 1
+
+
+def posicion_en_franja(t_ns, pos_franja, cal):
+    """
+    En que parte de su franja cae un instante, como proporcion entre 0 y 1.
+
+        posicion = (instante - inicio real) / (fin real - inicio real)
+
+    Se calcula sobre el largo REAL de la franja y no sobre seis horas fijas.
+    Asi funciona igual en los dias de cambio de hora, cuando una franja dura
+    cinco o siete horas, y en la franja del viernes, que termina cuando cierra
+    el mercado y no a la medianoche de Londres.
+
+    La usan por igual los eventos reales y los minutos candidatos de la
+    hipotesis nula: si cada uno la midiera a su manera, el emparejamiento
+    compararia cosas distintas.
+    """
+    t = np.asarray(t_ns, dtype=np.int64)
+    pos = np.asarray(pos_franja, dtype=int)
+    inicio = cal["inicio_ns"].to_numpy(np.int64)[pos]
+    fin = cal["fin_real_ns"].to_numpy(np.int64)[pos]
+    largo = (fin - inicio).astype(float)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        proporcion = np.where(largo > 0, (t - inicio) / largo, np.nan)
+    return np.clip(proporcion, 0.0, 1.0)
+
+
+def tercio_de_franja(t_ns, pos_franja, cal):
+    """
+    El tercio de la franja en que cae un instante: 0, 1 o 2.
+
+    Es la cuarta variable de emparejamiento de la nula. Hace falta porque la
+    volatilidad del EUR/USD depende mucho de la hora: un evento que ocurre al
+    principio de la franja de la tarde no es comparable con un minuto del final
+    de esa misma franja, aunque compartan franja, dia y decil de volatilidad.
+    """
+    proporcion = posicion_en_franja(t_ns, pos_franja, cal)
+    tercio = np.floor(np.nan_to_num(proporcion, nan=0.0) * 3).astype(int)
+    return np.clip(tercio, 0, 2)
 
 
 def etiquetas_por_minuto(barras, cal):

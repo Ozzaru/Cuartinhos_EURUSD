@@ -710,3 +710,142 @@ de un 15% y es un cambio de dos lineas.
 - **Decidir si se investiga la celda de reingreso a 120 minutos** (0,16 de
   falsos positivos) o se documenta como limitacion.
 - Sigue todo lo anterior, incluidos los 19 parametros `# POR DECIDIR`.
+
+---
+
+## Punto D (segunda parte) — Dos arreglos y una hipotesis descartada
+
+- **Fecha**: 2026-09-23
+- **Commit**: pendiente (se completa en el commit siguiente)
+- **Tests**: `pytest` -> 140 pasan, 0 fallan, 0 avisos.
+
+### Decisiones que fijo el grupo
+
+1. **`MIN_DIAS_TRATADOS` baja de 30 a 15** (sigue `# POR DECIDIR`, provisional).
+   Razon: la tasa de falsos positivos es plana desde 14 dias tratados, asi que
+   30 no estaba respaldado por nada; pero el piloto mostro rechazo severo por
+   debajo de 10 dias, asi que dejar el minimo en cero tampoco.
+2. **`NOTICIA_MODO` principal queda en `"ventana"`**, con `"franja"` como
+   robustez pre-registrada. Razon: las dos tienen la misma tasa de falsos
+   positivos, o sea que mas muestra no compra calibracion, y la ventana es
+   fiel al mecanismo que plantea H4 (el anuncio acaba de ocurrir).
+3. **`CORRECCION_PRINCIPAL` queda ABIERTA**, con Holm provisional. Se agrego
+   `REPORTAR_AMBAS_CORRECCIONES = True`: toda tabla trae Holm y Romano-Wolf.
+
+   El argumento, que va al informe: **el control negativo mide TAMANO, no
+   potencia**. Bajo la hipotesis nula las dos correcciones dan practicamente la
+   misma tasa (0 y 0,02 en moderadores; 0,08 y 0,06 en principal), asi que este
+   experimento no las distingue. La diferencia entre ellas es otra: **Holm
+   controla el error familiar bajo dependencia arbitraria**, asi que la
+   correlacion entre horizontes no lo invalida, solo le resta potencia;
+   **Romano-Wolf aprende esa dependencia de los datos** y por eso puede detectar
+   mas cuando las pruebas estan correlacionadas, que es justo el caso aqui (los
+   cuatro horizontes miden el mismo evento). La decision correcta es comparar
+   POTENCIA, y eso es el punto E. A 1,2 segundos por mercado, no hay razon para
+   elegir a ciegas mientras tanto.
+
+### Arreglo 1: los anuncios de fin de semana
+
+Los anuncios que caian sabado o domingo ahora se corren al siguiente dia con
+mercado abierto, como pasa en la realidad. Funciono como se esperaba: la
+muestra tratada subio alrededor de un 15% en las cuatro combinaciones.
+
+| modo y tipo | dias tratados antes | despues |
+|---|---:|---:|
+| franja / reingreso | 273 | 313 |
+| franja / sostenida | 100 | 114 |
+| ventana / reingreso | 58 | 66 |
+| ventana / sostenida | 21 | **24** |
+
+Ese ultimo numero importa: con el minimo en 15, la prueba de H4 sobre
+sostenidas con el modo "ventana" **ya entra en la familia** (el minimo
+observado en 15 mercados fue 18 dias). Con el minimo anterior de 30 habria
+nacido descriptiva.
+
+### Arreglo 2: emparejar por tercio de franja — LA HIPOTESIS ERA FALSA
+
+Se agrego la posicion dentro de la franja como cuarta variable de
+emparejamiento, calculada sobre el largo REAL de la franja:
+
+    posicion = (instante - inicio real) / (fin real - inicio real)
+
+donde el fin real es el que llegue primero entre el fin de la franja y el
+cierre del mercado. Asi funciona igual en los dias de cambio de hora (franjas
+de 5 o 7 horas) y en la franja recortada del viernes. Vive en
+`franjas.posicion_en_franja` y `franjas.tercio_de_franja`, y la usan por igual
+los eventos y los minutos candidatos.
+
+**Los estratos no se quedaron sin candidatos**, asi que no hizo falta bajar a
+quintiles: con franja x dia x decil x tercio quedan 531 estratos con datos, la
+mediana tiene 1.904 minutos candidatos, el mas pobre tiene 46, y de 5.383
+eventos solo 7 quedan sin pareja posible.
+
+**Y no arreglo nada.** Esta es la comparacion, con todo lo demas igual:
+
+| | antes | ahora |
+|---|---:|---:|
+| familia principal, tasa bruta | 0,070 | 0,0675 |
+| familia principal, p-valor medio | 0,462 | 0,463 |
+| **celda reingreso a 120 minutos** | **0,16** | **0,16** |
+| familia moderadores, tasa bruta | 0,047 | 0,048 |
+| H4, tasa por modo y tipo | 0,067-0,100 | 0,050-0,117 |
+
+La celda de 120 minutos quedo exactamente igual: 8 rechazos de 50 antes y
+despues. La hipotesis de que el exceso venia de comparar momentos distintos de
+la franja **queda descartada**.
+
+Se decidio **mantener** el emparejamiento por tercio de todas formas: es a
+priori mas correcto comparar un evento del principio de la franja con minutos
+del principio, los estratos siguen holgados y no cuesta tiempo. Pero queda
+dicho que no compra calibracion, y revertirlo es quitar una linea de la clave.
+
+Siguiendo la instruccion del grupo, **no se probaron mas variantes**. Buscar
+hasta que una calce seria elegir el metodo mirando el resultado.
+
+### Estado del control negativo despues de los arreglos
+
+| familia | tasa bruta | IC 95% | mercados con algun rechazo (Holm / RW) |
+|---|---:|---|---|
+| moderadores (24 pruebas) | 0,048 | [0,038, 0,062] | 0,00 / 0,02 |
+| principal (8 pruebas) | 0,0675 | [0,047, 0,096] | 0,08 / 0,06 |
+
+Los dos intervalos contienen el 5%. La familia principal sigue con su leve
+exceso, concentrado en reingreso a 120 minutos.
+
+### El corte calibrado por tamano: NO es viable
+
+Se calculo la propuesta que pidio el grupo: el corte de p que dejaria cada
+familia en 5% de mercados con algun rechazo. El resultado es que **no se puede
+fijar un numero**:
+
+| familia | corte calibrado | IC 95% | mercados para que el IC mida 0,01 |
+|---|---:|---|---:|
+| principal (Holm) | 0,023 | [0,012, 0,147] | **9.134** |
+| moderadores (Holm) | 0,074 | [0,054, 0,165] | 6.149 |
+
+El intervalo del corte de la familia principal va de 0,012 a 0,147: doce veces
+mas ancho que el propio corte. Fijar 0,023 seria inventar precision. Para
+estrecharlo a 0,01 harian falta unos 9.100 mercados, o sea unas 40 horas de
+computo, porque el ancho de un percentil se encoge con la raiz del numero de
+observaciones y aqui se esta estimando el percentil 5 con 50 datos.
+
+Dato util de paso: el corte calibrado de la familia de MODERADORES sale en
+0,074, o sea POR ENCIMA de 0,05. Esa familia no esta rechazando de mas, esta
+rechazando de menos: es conservadora.
+
+**Recomendacion: no adoptar el corte calibrado.** Las dos opciones que quedan
+para la celda de 120 minutos son las que puso el grupo sobre la mesa: sacar ese
+horizonte de la familia principal, o declarar la limitacion. Mi preferencia es
+**declarar la limitacion**, porque sacar un horizonte despues de ver que es el
+que falla es exactamente la clase de decision que un pre-registro busca
+impedir, y porque el exceso es modesto (0,16 contra 0,05 en una celda de ocho,
+con 50 mercados detras).
+
+### Pendientes al cerrar esta parte
+
+- **Decidir la celda de reingreso a 120 minutos**: sacarla de la familia o
+  declarar la limitacion.
+- **Confirmar `MIN_DIAS_TRATADOS = 15`** tras esta corrida (la evidencia lo
+  respalda: el minimo observado de dias tratados fue 18).
+- `CORRECCION_PRINCIPAL` se decide en el punto E por potencia.
+- Sigue todo lo anterior, ahora con 19 parametros `# POR DECIDIR`.
