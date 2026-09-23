@@ -855,7 +855,7 @@ con 50 mercados detras).
 ## Punto D (tercera parte) — Ultimo intento de calibracion, y lo que se encontro
 
 - **Fecha**: 2026-09-23
-- **Commit**: pendiente (se completa en el commit siguiente)
+- **Commit**: `1751489` (`punto D (3a parte): ultimo intento de calibracion y el sesgo de fondo`)
 - **Tests**: `pytest` -> 154 pasan, 0 fallan, 0 avisos.
 
 ### Que se probo, con la regla escrita ANTES de mirar el resultado
@@ -979,4 +979,5 @@ el ultimo intento sobre calibracion. Queda como pregunta abierta y declarada.
   vez de 5%) y el piso de 0,005 a 0,008 en unidades de retorno normalizado.
 - `CORRECCION_PRINCIPAL` se decide en el punto E por potencia.
 - Revisar si conviene agregar un tamano de efecto intermedio en el punto E.
-- Sigue todo lo anterior, ahora con 21 parametros `# POR DECIDIR`.
+- Sigue todo lo anterior, ahora con 21 parametros `# POR DECIDIR`
+  (`NULA_GRUPOS_VOL_RECIENTE` y `VENTANA_VOL_RECIENTE_MIN` son los nuevos).
