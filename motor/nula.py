@@ -28,11 +28,16 @@ solo para emparejar, nunca como variable explicativa.
 p-valor segun Phipson y Smyth (2010): se suma 1 arriba y 1 abajo. El p-valor
 nunca puede dar 0, porque el promedio observado tambien es una de las
 ordenaciones posibles. Con R repeticiones el minimo alcanzable es 1 / (R + 1).
+
+H4 (anuncios macro) se mide aparte, en `correr_h4`, por inferencia de
+aleatorizacion. Ver ahi la explicacion y las referencias.
 """
 import numpy as np
 import pandas as pd
 
 from . import eventos as mod_eventos
+from . import inferencia as mod_inferencia
+from . import moderadores as mod_moderadores
 from . import resultados
 
 
@@ -54,13 +59,16 @@ def deciles_de_volatilidad(sigma, utilizable, n_grupos):
     return grupo
 
 
-def preparar_candidatos(barras, cal, cfg, sigma=None):
+def preparar_candidatos(barras, cal, cfg, sigma=None, noticias=None):
     """
     Precalcula, para cada minuto, su grupo de emparejamiento y su retorno a
     cada horizonte con direccion +1.
 
     Esto es lo que permite que despues cada repeticion sea solo sortear
     indices: el trabajo pesado se hace una sola vez.
+
+    Si se pasa el calendario de anuncios, tambien se marca que minutos estan
+    "con anuncio", que es lo que necesita la nula de H4.
     """
     if sigma is None:
         sigma = resultados.sigma_por_franja(barras, cal, cfg)
@@ -79,6 +87,7 @@ def preparar_candidatos(barras, cal, cfg, sigma=None):
         sigma=sigma[pos],
         pos_franja=pos)
 
+    fecha = cal["fecha_londres"].to_numpy()[pos]
     return {
         "pos_franja": pos,
         "idx_franja": cal["idx_franja"].to_numpy()[pos],
@@ -87,6 +96,8 @@ def preparar_candidatos(barras, cal, cfg, sigma=None):
         "sirve": sirve_minuto,
         "retornos": {h: columnas[f"ret_{h}"] for h in cfg.HORIZONTES},
         "grupo_vol_por_franja": grupo_vol,
+        "dia_codigo": pd.factorize(pd.DatetimeIndex(fecha))[0],
+        "tratado": mod_moderadores.marcar_noticia(barras.cierre_ns, pos, cal, noticias, cfg),
     }
 
 
@@ -206,6 +217,136 @@ def correr(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
     return pd.DataFrame(filas), distribuciones
 
 
+def correr_h4(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
+              candidatos=None, sigma=None, noticias=None):
+    """
+    H4 por INFERENCIA DE ALEATORIZACION.
+
+    La pregunta de H4 es si el efecto del evento es distinto cuando hubo un
+    anuncio macro cerca. El camino obvio -- meter una variable "noticia" en la
+    regresion y mirar su coeficiente -- no sirve aqui: los eventos con anuncio
+    son poquisimos y caben en muy pocos dias, y con tan pocos grupos tratados el
+    error estandar agrupado sale demasiado chico y rechaza de mas. Lo medimos en
+    el punto C: 25% de falsos positivos en vez de 5%.
+
+    El camino que si sirve (MacKinnon y Webb, 2020):
+
+      1. El estadistico observado es la DIFERENCIA entre submuestras,
+         estudentizada:
+             t_dif = (media_con_anuncio - media_sin_anuncio) / error agrupado
+         Va estudentizada a proposito: con pocos grupos tratados y grupos
+         heterogeneos, la inferencia por aleatorizacion sobre el coeficiente
+         crudo se porta mal, mientras que sobre el estadistico t se mantiene
+         cerca del nivel nominal, a cambio de algo de potencia.
+      2. La nula sortea pseudo-eventos con la MISMA estructura que los reales:
+         misma cantidad, mismo indice de franja, mismo dia de semana y mismo
+         decil de volatilidad. Y la condicion que hace todo el trabajo:
+             los pseudo-eventos "con anuncio" salen SOLO de minutos que estan
+             dentro de una ventana de anuncio, y los "sin anuncio" SOLO de
+             minutos que estan fuera.
+      3. Como la nula ya incorpora que los minutos de anuncio se mueven mas, lo
+         que sobrevive a la comparacion es el efecto propio del evento. Es una
+         diferencia en diferencias hecha por sorteo.
+      4. p-valor de Phipson y Smyth, a una cola "mayor", porque H4 predice mas
+         continuacion cuando hay anuncio.
+
+    Se informan las dos versiones del estadistico, estudentizada y sin
+    estudentizar, para tener evidencia propia sobre cual se comporta mejor.
+    """
+    repeticiones = cfg.NULA_REPETICIONES if repeticiones is None else repeticiones
+    if candidatos is None:
+        candidatos = preparar_candidatos(barras, cal, cfg, sigma=sigma, noticias=noticias)
+
+    rng = np.random.default_rng(semilla)
+    grupo_por_franja = candidatos["grupo_vol_por_franja"]
+    pos_cand = candidatos["pos_franja"]
+    tratado_cand = candidatos["tratado"]
+    dia_cand = candidatos["dia_codigo"]
+
+    filas = []
+    for h in cfg.HORIZONTES:
+        columna = f"ret_{h}"
+        ret_cand = candidatos["retornos"][h]
+        disponible = candidatos["sirve"] & np.isfinite(ret_cand)
+        # Dos conjuntos de candidatos separados: los minutos de anuncio y el
+        # resto. Un pseudo-evento tratado solo puede salir del primero.
+        pools = {
+            1: _armar_pools(candidatos, disponible & (tratado_cand == 1.0)),
+            0: _armar_pools(candidatos, disponible & (tratado_cand == 0.0)),
+        }
+
+        for tipo in ("sostenida", "reingreso"):
+            del_tipo = tabla_eventos[tabla_eventos["tipo"] == tipo]
+            usables = del_tipo[np.isfinite(del_tipo[columna].to_numpy(float))
+                               & np.isfinite(del_tipo["noticia"].to_numpy(float))]
+            filas.append(_una_prueba_h4(rng, usables, columna, tipo, h, ret_cand,
+                                        pools, grupo_por_franja, pos_cand, dia_cand,
+                                        repeticiones))
+    return pd.DataFrame(filas)
+
+
+def _una_prueba_h4(rng, usables, columna, tipo, h, ret_cand, pools,
+                   grupo_por_franja, pos_cand, dia_cand, repeticiones):
+    """Una celda de H4: un tipo de evento y un horizonte."""
+    vacia = {"tipo": tipo, "horizonte": h, "cola": "mayor", "n_con": 0, "n_sin": 0,
+             "dias_tratados": 0, "diferencia": np.nan, "error": np.nan,
+             "t_observado": np.nan, "p_estudentizado": np.nan,
+             "p_sin_estudentizar": np.nan, "repeticiones": 0, "n_descartados": 0}
+    if len(usables) == 0:
+        return vacia
+
+    tratado = usables["noticia"].to_numpy(float)
+    franja_evento = usables["pos_franja"].to_numpy(int)
+    claves = _clave(usables["idx_franja"].to_numpy(int),
+                    usables["dia_semana"].to_numpy(int),
+                    grupo_por_franja[franja_evento])
+
+    # Cada evento se sortea dentro de su propio conjunto: tratados con tratados.
+    indices = np.full((repeticiones, len(usables)), -1, dtype=np.int64)
+    usable = np.zeros(len(usables), dtype=bool)
+    for marca in (1.0, 0.0):
+        cuales = np.flatnonzero(tratado == marca)
+        if len(cuales) == 0:
+            continue
+        parcial, ok = _sortear(rng, pools[int(marca)], claves[cuales],
+                               franja_evento[cuales], pos_cand, repeticiones)
+        indices[:, cuales] = parcial
+        usable[cuales] = ok
+
+    if not usable.any() or len(np.unique(tratado[usable])) < 2:
+        vacia["n_descartados"] = int((~usable).sum())
+        return vacia
+
+    direccion = usables["direccion"].to_numpy(float)[usable]
+    y = usables[columna].to_numpy(float)[usable]
+    tratado_ok = tratado[usable]
+    dia_real = pd.factorize(pd.DatetimeIndex(usables["fecha_londres"]))[0][usable]
+
+    diferencia, error, t_obs = mod_inferencia.diferencia_agrupada(y, tratado_ok, dia_real)
+
+    # La nula: el mismo calculo, con los pseudo-eventos de cada repeticion.
+    t_nulas = np.full(repeticiones, np.nan)
+    dif_nulas = np.full(repeticiones, np.nan)
+    for r in range(repeticiones):
+        sorteo = indices[r, usable]
+        y_nulo = ret_cand[sorteo] * direccion
+        dif_nulas[r], _, t_nulas[r] = mod_inferencia.diferencia_agrupada(
+            y_nulo, tratado_ok, dia_cand[sorteo])
+
+    dias_tratados = int(pd.Series(dia_real[tratado_ok == 1.0]).nunique())
+    return {
+        "tipo": tipo, "horizonte": h, "cola": "mayor",
+        "n_con": int((tratado_ok == 1.0).sum()), "n_sin": int((tratado_ok == 0.0).sum()),
+        "dias_tratados": dias_tratados,
+        "diferencia": diferencia, "error": error, "t_observado": t_obs,
+        "p_estudentizado": _p_una_cola(t_obs, t_nulas[np.isfinite(t_nulas)], "mayor"),
+        "p_sin_estudentizar": _p_una_cola(diferencia, dif_nulas[np.isfinite(dif_nulas)],
+                                          "mayor"),
+        "repeticiones": int(np.isfinite(t_nulas).sum()),
+        "n_descartados": int((~usable).sum()),
+    }
+
+
 def _armar_pools(candidatos, disponible):
     """Diccionario clave de grupo -> posiciones de los minutos candidatos."""
     posiciones = np.flatnonzero(disponible)
@@ -235,6 +376,9 @@ def _p_una_cola(observado, nulas, cola):
     nulas que igualan o superan lo observado. Para H2 (reingreso) dice "menor
     que cero" y se cuenta al reves.
     """
+    nulas = np.asarray(nulas, dtype=float)
+    if len(nulas) == 0 or not np.isfinite(observado):
+        return np.nan
     if cola == "mayor":
         extremas = np.sum(nulas >= observado)
     elif cola == "menor":
@@ -250,6 +394,9 @@ def _p_dos_colas(observado, nulas):
     mas que lo observado. Se centra en el promedio de las nulas porque esa
     distribucion no tiene por que estar exactamente en cero.
     """
+    nulas = np.asarray(nulas, dtype=float)
+    if len(nulas) == 0 or not np.isfinite(observado):
+        return np.nan
     centro = np.mean(nulas)
     extremas = np.sum(np.abs(nulas - centro) >= abs(observado - centro))
     return float((1 + extremas) / (1 + len(nulas)))

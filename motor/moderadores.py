@@ -122,16 +122,44 @@ def agregar(barras, cal, eventos, cfg, noticias=None):
                                      (ratio < cfg.CORTE_COMPRESION).astype(float), np.nan)
 
     # --- noticias macro -----------------------------------------------------
-    eventos["noticia"] = _hubo_noticia(t_evento, noticias, cfg)
+    eventos["noticia"] = marcar_noticia(t_evento, pos, cal, noticias, cfg)
     return eventos
 
 
-def _hubo_noticia(t_evento, noticias, cfg):
-    """1.0 si hubo un anuncio en (t - VENTANA_NOTICIAS_MIN, t], si no 0.0."""
+def marcar_noticia(t_ns, pos_franja, cal, noticias, cfg):
+    """
+    Marca que instantes estan "con anuncio". Devuelve 1.0 o 0.0.
+
+    Dos definiciones, las dos pre-registradas desde el comienzo para que
+    despues no parezca que se eligio la que convenia:
+
+      "ventana" (principal)  hubo un anuncio en los VENTANA_NOTICIAS_MIN
+                             minutos previos al instante, o sea en
+                             (t - ventana, t].
+      "franja"  (robustez)   la franja a la que pertenece el instante contiene
+                             algun anuncio, sin importar cuando. Marca muchos
+                             mas casos como tratados, que es justamente lo que
+                             escasea.
+
+    Esta funcion la usan por igual los eventos reales y los minutos candidatos
+    de la hipotesis nula: no puede haber dos definiciones de "con anuncio".
+    """
+    t_ns = np.asarray(t_ns, dtype=np.int64)
     if noticias is None or len(noticias) == 0:
-        return np.zeros(len(t_evento))
+        return np.zeros(len(t_ns))
     t_anuncio = np.sort(tiempo.a_ns(pd.DatetimeIndex(noticias["t_utc"])))
-    desde = t_evento - cfg.VENTANA_NOTICIAS_MIN * tiempo.NS_MIN
-    cuantos = (np.searchsorted(t_anuncio, t_evento, side="right")
-               - np.searchsorted(t_anuncio, desde, side="right"))
-    return (cuantos > 0).astype(float)
+
+    if cfg.NOTICIA_MODO == "ventana":
+        desde = t_ns - cfg.VENTANA_NOTICIAS_MIN * tiempo.NS_MIN
+        cuantos = (np.searchsorted(t_anuncio, t_ns, side="right")
+                   - np.searchsorted(t_anuncio, desde, side="right"))
+        return (cuantos > 0).astype(float)
+
+    if cfg.NOTICIA_MODO == "franja":
+        inicio = cal["inicio_ns"].to_numpy(np.int64)
+        fin = cal["fin_ns"].to_numpy(np.int64)
+        con_anuncio = (np.searchsorted(t_anuncio, fin, side="left")
+                       - np.searchsorted(t_anuncio, inicio, side="left")) > 0
+        return con_anuncio[np.asarray(pos_franja, dtype=int)].astype(float)
+
+    raise ValueError(f"NOTICIA_MODO desconocido: {cfg.NOTICIA_MODO}")

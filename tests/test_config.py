@@ -24,9 +24,15 @@ def test_familias_de_pruebas_bien_formadas():
     assert tipos == {"sostenida", "reingreso"}
     colas = {t: c for t, _, _, c in cfg.FAMILIA_PRINCIPAL}
     assert colas["sostenida"] == "mayor" and colas["reingreso"] == "menor"
-    # Familia de moderadores: dos tipos x horizontes x moderadores, a dos colas.
-    assert len(cfg.FAMILIA_MODERADORES) == 2 * len(cfg.HORIZONTES) * len(cfg.MODERADORES)
+    # Familia de moderadores (H3): dos tipos x horizontes x moderadores
+    # PROBADOS, a dos colas. `noticia` no esta: se prueba en FAMILIA_H4.
+    assert len(cfg.FAMILIA_MODERADORES) == 2 * len(cfg.HORIZONTES) * len(cfg.MODERADORES_PROBADOS)
     assert {c for _, _, _, c in cfg.FAMILIA_MODERADORES} == {"dos"}
+    assert "noticia" not in {coef for _, _, coef, _ in cfg.FAMILIA_MODERADORES}
+    assert "noticia" in cfg.MODERADORES, "sigue como control de la regresion"
+    # Familia H4: dos tipos x horizontes, a una cola "mayor".
+    assert len(cfg.FAMILIA_H4) == 2 * len(cfg.HORIZONTES)
+    assert {c for _, _, _, c in cfg.FAMILIA_H4} == {"mayor"}
     # "ruptura" es descriptivo: no entra en ninguna familia corregida.
     assert "ruptura" not in tipos
     assert "ruptura" in cfg.TIPOS_DESCRIPTIVOS

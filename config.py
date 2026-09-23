@@ -74,8 +74,10 @@ DIAS_COMPRESION = 20                         # dias pasados validos para la medi
 DIAS_COMPRESION_MIN = 10                     # dias validos minimos; con menos, ratio_compresion = NaN  # POR DECIDIR
 CORTE_COMPRESION = 0.75                      # ratio por debajo del cual la franja de referencia se considera comprimida  # POR DECIDIR
 VENTANA_NOTICIAS_MIN = 60                    # minutos previos al evento en los que un anuncio macro cuenta como "noticia"  # POR DECIDIR
+NOTICIA_MODO = "ventana"                     # "ventana" (principal) o "franja" (robustez: toda la franja con anuncio cuenta como tratada)
 
-MODERADORES = ["cerca_redondo", "cerca_extremo_previo", "comprimida", "noticia"]  # regresores de H3 y H4
+MODERADORES = ["cerca_redondo", "cerca_extremo_previo", "comprimida", "noticia"]  # regresores de la regresion
+MODERADORES_PROBADOS = ["cerca_redondo", "cerca_extremo_previo", "comprimida"]    # los que se PRUEBAN (H3); noticia entra solo como control
 
 # =============================================================================
 #  7. HIPOTESIS NULA EMPAREJADA
@@ -99,14 +101,26 @@ FAMILIA_PRINCIPAL = (
     + [("reingreso", h, "media", "menor") for h in HORIZONTES]
 )
 
-# Familia MODERADORES: H3 y H4. Cada prueba es (tipo, horizonte, coeficiente, cola).
+# Familia MODERADORES: H3. Cada prueba es (tipo, horizonte, coeficiente, cola).
 #   Dos colas: el signo del efecto moderador no se pre-especifica.
+#   `noticia` NO esta aqui: se estima como control pero se prueba en FAMILIA_H4.
 FAMILIA_MODERADORES = [
     (tipo, h, mod, "dos")
     for tipo in ("sostenida", "reingreso")
     for h in HORIZONTES
-    for mod in MODERADORES
+    for mod in MODERADORES_PROBADOS
 ]
+
+# Familia H4: el efecto de los anuncios macro, medido por inferencia de
+# aleatorizacion y no por un coeficiente de la regresion (ver motor/nula.py).
+#   Una cola "mayor": H4 predice MAS continuacion cuando hay anuncio.
+FAMILIA_H4 = [
+    (tipo, h, "dif_noticia", "mayor")
+    for tipo in ("sostenida", "reingreso")
+    for h in HORIZONTES
+]
+MIN_DIAS_TRATADOS = 30                       # dias distintos con evento "con anuncio" para que la prueba de H4 entre a la familia  # POR DECIDIR
+H4_ESTUDENTIZADO = True                      # True = el estadistico principal es el t; la version sin estudentizar se reporta como comparacion
 
 # "ruptura" queda como tipo DESCRIPTIVO: se reporta a dos colas, fuera de las
 # familias corregidas, porque no corresponde a ninguna hipotesis direccional.

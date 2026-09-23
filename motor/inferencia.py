@@ -66,6 +66,36 @@ def ols_agrupado(y, X, inicio_grupo):
     return beta, error, G
 
 
+def diferencia_agrupada(y, tratado, dia):
+    """
+    Diferencia de promedios entre tratados y no tratados, con error agrupado.
+
+        t_dif = (media_con - media_sin) / error estandar de esa diferencia
+
+    Es exactamente una regresion de y sobre una constante y la marca de
+    tratamiento, con los errores agrupados por dia. Se escribe como funcion
+    aparte porque la usan por igual los datos reales y CADA repeticion de la
+    nula de H4: el estadistico tiene que calcularse con el mismo codigo en los
+    dos lados, si no la comparacion no significa nada.
+
+    Devuelve (diferencia, error, t). Si el tratamiento no varia, todo NaN.
+    """
+    y = np.asarray(y, dtype=float)
+    tratado = np.asarray(tratado, dtype=float)
+    dia = np.asarray(dia)
+    if len(y) < 3 or tratado.std() == 0:
+        return np.nan, np.nan, np.nan
+
+    orden = np.argsort(dia, kind="stable")
+    y, tratado, dia = y[orden], tratado[orden], dia[orden]
+    X = np.column_stack([np.ones(len(y)), tratado])
+    inicio = np.flatnonzero(np.concatenate([[True], np.diff(dia) != 0]))
+    beta, error, _ = ols_agrupado(y, X, inicio)
+    if not np.isfinite(error[1]) or error[1] <= 0:
+        return float(beta[1]), np.nan, np.nan
+    return float(beta[1]), float(error[1]), float(beta[1] / error[1])
+
+
 def _p_de_t(t, gl, cola="dos"):
     """
     p-valor de un estadistico t, con la cola que pide la hipotesis.
@@ -408,6 +438,31 @@ def con_newey_west(celda, coeficiente, rezagos):
                                           cov_kwds={"maxlags": rezagos, "use_correction": True})
     j = celda.nombres.index(coeficiente)
     return float(ajuste.params[j]), float(ajuste.bse[j]), float(ajuste.tvalues[j])
+
+
+def corregir_h4(tabla_h4, cfg, columna_p="p_estudentizado"):
+    """
+    Aplica Holm a la familia de H4, dejando fuera las pruebas que no llegan al
+    minimo de dias tratados.
+
+    Una prueba con muestra insuficiente no se corrige ni se concluye: se informa
+    como descriptiva. Si entrara igual, gastaria lugar en la familia y
+    castigaria a las demas por una prueba en la que no se puede confiar.
+    """
+    tabla = tabla_h4.reset_index(drop=True).copy()
+    tabla["entra_en_familia"] = (
+        (tabla["dias_tratados"].to_numpy(float) >= cfg.MIN_DIAS_TRATADOS)
+        & np.isfinite(tabla[columna_p].to_numpy(float))
+    )
+    p = np.where(tabla["entra_en_familia"], tabla[columna_p].to_numpy(float), np.nan)
+    tabla["p_bruto"] = p
+    tabla["p_holm"] = holm(p)
+    tabla["p_corregido"] = tabla["p_holm"]
+    tabla["rechaza"] = (tabla["entra_en_familia"]
+                        & (tabla["p_corregido"].to_numpy(float) <= cfg.ALFA))
+    tabla["estado"] = np.where(tabla["entra_en_familia"], "en familia",
+                               "descriptivo, muestra insuficiente")
+    return tabla
 
 
 def p_brutos_desde_nula(tabla_nula, cfg):

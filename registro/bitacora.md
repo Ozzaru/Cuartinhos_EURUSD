@@ -409,3 +409,98 @@ tabla final y no para las 50 corridas del control negativo.
   Mientras tanto, el control negativo se corre tal cual y el reporte va a
   mostrar el problema con el calendario de anuncios de verdad.
 - Sigue todo lo anterior, incluidos los 18 parametros `# POR DECIDIR`.
+
+### RESUELTO (2026-09-22): H4 pasa a inferencia de aleatorizacion
+
+El grupo decidio la opcion D, con una vuelta de tuerca importante. Queda
+cerrado el pendiente anterior.
+
+**Que se decidio.** H4 ya no se mide con el coeficiente de `noticia` en la
+regresion. Se mide comparando dos submuestras, "con anuncio" y "sin anuncio",
+y se contrasta contra una nula construida por sorteo.
+
+**El estadistico observado** es la diferencia entre submuestras, estudentizada:
+
+    t_dif = (media_con_anuncio - media_sin_anuncio) / error estandar agrupado
+
+**La nula** sortea pseudo-eventos con la misma estructura que los reales (misma
+cantidad, mismo indice de franja, mismo dia de semana, mismo decil de
+volatilidad) y con la condicion que hace todo el trabajo: los pseudo-eventos
+"con anuncio" salen SOLO de minutos dentro de una ventana de anuncio, y los
+"sin anuncio" SOLO de minutos fuera. Como la nula ya incorpora que los minutos
+de anuncio se mueven mas, lo que sobrevive es el efecto propio del evento. Es
+una diferencia en diferencias hecha por sorteo. p-valor de Phipson y Smyth, a
+una cola "mayor", porque H4 predice mas continuacion cuando hay anuncio.
+
+**Por que estudentizado y no la diferencia cruda.** MacKinnon y Webb (2020)
+muestran que, con pocos grupos tratados y grupos heterogeneos, la inferencia
+por aleatorizacion basada en los coeficientes es poco confiable, mientras que
+la basada en estadisticos t se mantiene cerca del nivel nominal, a cambio de
+algo de potencia. El error estandar se calcula con la MISMA funcion en los
+datos reales y en cada repeticion de la nula
+(`inferencia.diferencia_agrupada`), y hay un test que lo verifica contando
+llamadas. Igual se reportan las dos versiones, con y sin estudentizar, para
+tener evidencia propia.
+
+**Literatura citada.**
+- MacKinnon y Webb (2020), "Randomization inference for difference-in-differences
+  with few treated clusters", Journal of Econometrics 218(2), 435-450. Es la
+  base del metodo y del uso del estadistico t.
+  PDF: `docs/papers/MacKinnonWebb_2020_inferencia_aleatorizacion.pdf`.
+- MacKinnon y Webb (2018), The Econometrics Journal 21(2), 114-135. Por que se
+  descarto el bootstrap wild cluster con muy pocos grupos tratados.
+- Conley y Taber (2011), REStat 93(1), y Ferman y Pinto (2019), REStat 101(3).
+  Alternativas consideradas y no adoptadas.
+- Cameron, Gelbach y Miller (2008), REStat 90(3). El problema general de pocos
+  clusters, que es el que se encontro en el punto C.
+
+**Lo que cambio en el codigo.**
+1. `FAMILIA_H4`: 2 tipos x 4 horizontes = 8 pruebas, corregidas con Holm.
+2. `FAMILIA_MODERADORES` baja a 24 pruebas (3 moderadores x 2 tipos x 4
+   horizontes). `noticia` SALE de las pruebas pero SIGUE como variable de
+   control en la regresion, para que los coeficientes de H3 no queden
+   contaminados por los eventos con anuncio.
+3. `MIN_DIAS_TRATADOS = 30` (# POR DECIDIR): minimo de dias distintos con
+   evento "con anuncio" para que la prueba entre a la familia. Si no se
+   alcanza, se informa como "descriptivo, muestra insuficiente", no se corrige
+   y no se concluye. Una prueba asi tampoco gasta lugar en la familia de Holm,
+   para no castigar a las demas por una prueba en la que no se puede confiar.
+   El valor definitivo se calibra con el control negativo del punto D.
+4. `NOTICIA_MODO`: `"ventana"` (principal, anuncio en los
+   VENTANA_NOTICIAS_MIN minutos previos) y `"franja"` (robustez, cualquier
+   evento de una franja que contenga un anuncio). Las dos quedan
+   pre-registradas desde ahora, para que despues no parezca que se eligio la
+   que convenia. Una sola funcion, `moderadores.marcar_noticia`, las
+   implementa, y la usan por igual los eventos y los minutos candidatos.
+
+**Primera evidencia.** Sobre 2 anos simulados con el calendario de anuncios del
+punto D, el modo "ventana" deja 15 eventos tratados y el modo "franja" 101. Un
+caso ilustra por que el cambio era necesario: un reingreso con solo 2 eventos
+tratados daba `t = 5,78`, que con la regresion hubiera sido un "hallazgo"
+clarisimo; con la nula de aleatorizacion su p-valor es 0,16. Con 2 anos de
+datos ninguna prueba llega a 30 dias tratados, asi que todas quedan
+descriptivas; con los 13 anos del tramo de desarrollo si deberian llegar.
+
+**Lo que tiene que agregar el reporte del punto D** (pedido del grupo):
+- Tasa de falsos positivos por familia, con intervalo binomial al 95%:
+  `FAMILIA_PRINCIPAL` (8), `FAMILIA_MODERADORES` (24) y `FAMILIA_H4` (8).
+- Para H4: esa tasa por tramos de dias tratados (<10, 10-29, 30-99, >=100) y
+  por las dos versiones del estadistico. Con eso se fija `MIN_DIAS_TRATADOS`
+  con evidencia y no a ojo.
+- Para H4: la misma tabla con `NOTICIA_MODO = "ventana"` y con `"franja"`.
+- Romano-Wolf tambien en el control negativo, comparado con Holm en cada
+  familia.
+
+### Sobre docs/papers/
+
+Carpeta que mantiene el grupo a mano, con los PDF de la literatura citada.
+Tiene su propio `.gitignore` que excluye los PDF del repositorio; solo se
+versionan el `README.md` y el propio `.gitignore`. No se modifica desde aqui.
+
+### Calendario
+
+El informe N1 es el 2 de octubre. Los puntos D, E y F deberian cerrarse
+alrededor del 26 de septiembre. Si una corrida amenaza con pasar de una hora,
+se reducen repeticiones o duraciones, se dice en el informe con su error de
+Monte Carlo, y se sigue. Los controles no se sacrifican: se sacrifica tamano
+de muestra.
