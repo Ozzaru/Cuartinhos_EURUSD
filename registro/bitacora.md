@@ -531,7 +531,7 @@ de muestra.
 ## Punto de control D — Mercado simulado y control negativo
 
 - **Fecha**: 2026-09-22
-- **Commit**: pendiente (se completa en el commit siguiente)
+- **Commit**: `b488493` (`punto D: mercado simulado y control negativo`)
 - **Tests**: `pytest` -> 129 pasan, 0 fallan, 0 avisos.
 
 ### El mercado simulado (`simulacion/mercado.py`)
