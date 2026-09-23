@@ -96,6 +96,49 @@ def _insumos_de_volatilidad(barras, cal):
             agregado["n"].fillna(0).to_numpy(int))
 
 
+def volatilidad_reciente(barras, cfg):
+    """
+    Volatilidad realizada de los ultimos minutos, barra por barra.
+
+    Para el instante en que cierra la barra i, se mide con los retornos de 1
+    minuto de las ultimas VENTANA_VOL_RECIENTE_MIN barras terminando en la i.
+    Todas esas barras ya cerraron en ese instante, asi que es informacion
+    disponible: no mira ni un minuto hacia adelante.
+
+    Es distinta de `sigma_por_franja`, que resume veinte dias. Esta captura si
+    el mercado viene movido AHORA, que es justo lo que distingue a un evento de
+    un minuto cualquiera: un reingreso ocurre despues de una expansion, asi que
+    por construccion llega con la volatilidad reciente alta.
+
+    Los retornos que cruzan un hueco de datos o un cierre de mercado no cuentan.
+    Si en la ventana no quedan al menos MIN_BARRAS_VOL_RECIENTE retornos
+    validos, el resultado es NaN.
+    """
+    n = len(barras)
+    if n < 2:
+        return np.full(n, np.nan)
+
+    ret = np.zeros(n)
+    valido = np.zeros(n, dtype=bool)
+    contiguo = np.diff(barras.apertura_ns) == tiempo.NS_MIN
+    ret[1:] = np.where(contiguo, np.diff(np.log(barras.mid_c)), 0.0)
+    valido[1:] = contiguo
+
+    ventana = int(cfg.VENTANA_VOL_RECIENTE_MIN)
+    suma_sq = _suma_movil(ret ** 2, ventana)
+    cuenta = _suma_movil(valido.astype(float), ventana)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.where(cuenta >= cfg.MIN_BARRAS_VOL_RECIENTE,
+                        np.sqrt(suma_sq / np.maximum(cuenta, 1)), np.nan)
+
+
+def _suma_movil(valores, ventana):
+    """Suma de las ultimas `ventana` posiciones, incluida la actual."""
+    acumulado = np.concatenate([[0.0], np.cumsum(valores)])
+    posiciones = np.arange(len(valores)) + 1
+    return acumulado[posiciones] - acumulado[np.maximum(posiciones - ventana, 0)]
+
+
 def sigma_por_franja(barras, cal, cfg):
     """
     Volatilidad de referencia de cada franja: la desviacion tipica de un

@@ -164,8 +164,9 @@ def test_la_nula_solo_sortea_minutos_del_mismo_tercio(monkeypatch):
     for claves, indices, usable in registro:
         if not usable.any():
             continue
-        # El tercio esta en las dos ultimas cifras de la clave.
-        tercio_evento = claves % 100
+        # En la clave, la ultima cifra es el grupo de volatilidad reciente y la
+        # anteultima es el tercio.
+        tercio_evento = (claves // 10) % 10
         for i in np.flatnonzero(usable):
             sorteados = indices[:, i]
             assert np.all(tercio_cand[sorteados] == tercio_evento[i]), \
@@ -174,15 +175,16 @@ def test_la_nula_solo_sortea_minutos_del_mismo_tercio(monkeypatch):
     assert revisados > 50, "hacen falta eventos revisados para que valga"
 
 
-def test_la_clave_de_emparejamiento_junta_las_cuatro_variables():
-    a = nula._clave(1, 2, 3, 0)
-    assert nula._clave(1, 2, 3, 1) != a, "el tercio tiene que cambiar la clave"
-    assert nula._clave(1, 2, 4, 0) != a, "el decil tiene que cambiar la clave"
-    assert nula._clave(1, 3, 3, 0) != a, "el dia tiene que cambiar la clave"
-    assert nula._clave(2, 2, 3, 0) != a, "la franja tiene que cambiar la clave"
+def test_la_clave_de_emparejamiento_junta_las_cinco_variables():
+    a = nula._clave(1, 2, 3, 0, 0)
+    assert nula._clave(1, 2, 3, 0, 1) != a, "la volatilidad reciente tiene que contar"
+    assert nula._clave(1, 2, 3, 1, 0) != a, "el tercio tiene que cambiar la clave"
+    assert nula._clave(1, 2, 4, 0, 0) != a, "el decil tiene que cambiar la clave"
+    assert nula._clave(1, 3, 3, 0, 0) != a, "el dia tiene que cambiar la clave"
+    assert nula._clave(2, 2, 3, 0, 0) != a, "la franja tiene que cambiar la clave"
     # Y ninguna combinacion distinta puede dar la misma clave.
-    todas = [nula._clave(f, d, g, t) for f in range(4) for d in range(7)
-             for g in range(10) for t in range(3)]
+    todas = [int(nula._clave(f, d, g, t, v)) for f in range(4) for d in range(7)
+             for g in range(10) for t in range(3) for v in range(4)]
     assert len(set(todas)) == len(todas)
 
 
@@ -195,7 +197,7 @@ def test_los_estratos_quedan_con_candidatos_suficientes():
     disponible = candidatos["sirve"] & np.isfinite(candidatos["retornos"][60])
     pools = nula._armar_pools(candidatos, disponible)
 
-    claves = nula.claves_de_eventos(ev, cal, candidatos)
+    claves = nula.claves_de_eventos(ev, cal, candidatos, barras, cfg)
     tamanos = np.array([len(pools.get(int(k), [])) for k in claves])
-    assert np.median(tamanos) > 200
-    assert (tamanos < 30).mean() < 0.05, "demasiados eventos con estrato pobre"
+    assert np.median(tamanos) > 100
+    assert (tamanos < 30).mean() < 0.10, "demasiados eventos con estrato pobre"

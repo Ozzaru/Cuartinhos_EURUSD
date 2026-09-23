@@ -17,9 +17,23 @@ def test_horizontes_incluyen_fin_de_franja():
     assert cfg.HORIZONTE_PRINCIPAL in cfg.HORIZONTES_MIN
 
 
+def test_el_horizonte_de_120_es_descriptivo_y_no_confirma():
+    # Sale de la familia principal porque en el control negativo rechaza entre
+    # el 14% y el 16% bajo la nula. Se sigue midiendo y reportando.
+    assert 120 in cfg.HORIZONTES, "se sigue calculando"
+    assert 120 in cfg.HORIZONTES_DESCRIPTIVOS
+    assert 120 not in cfg.HORIZONTES_CONFIRMATORIOS
+    assert 120 not in {h for _, h, _, _ in cfg.FAMILIA_PRINCIPAL}
+    # Pero sigue en las otras dos familias, que si estan calibradas.
+    assert 120 in {h for _, h, _, _ in cfg.FAMILIA_MODERADORES}
+    assert 120 in {h for _, h, _, _ in cfg.FAMILIA_H4}
+
+
 def test_familias_de_pruebas_bien_formadas():
-    # Familia principal: H1 y H2, una cola cada una, en todos los horizontes.
-    assert len(cfg.FAMILIA_PRINCIPAL) == 2 * len(cfg.HORIZONTES)
+    # Familia principal: H1 y H2, una cola cada una, en los horizontes
+    # confirmatorios.
+    assert len(cfg.FAMILIA_PRINCIPAL) == 2 * len(cfg.HORIZONTES_CONFIRMATORIOS)
+    assert len(cfg.FAMILIA_PRINCIPAL) == 6
     tipos = {t for t, _, _, _ in cfg.FAMILIA_PRINCIPAL}
     assert tipos == {"sostenida", "reingreso"}
     colas = {t: c for t, _, _, c in cfg.FAMILIA_PRINCIPAL}

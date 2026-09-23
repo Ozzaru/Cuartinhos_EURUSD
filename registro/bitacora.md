@@ -849,3 +849,134 @@ con 50 mercados detras).
   respalda: el minimo observado de dias tratados fue 18).
 - `CORRECCION_PRINCIPAL` se decide en el punto E por potencia.
 - Sigue todo lo anterior, ahora con 19 parametros `# POR DECIDIR`.
+
+---
+
+## Punto D (tercera parte) — Ultimo intento de calibracion, y lo que se encontro
+
+- **Fecha**: 2026-09-23
+- **Commit**: pendiente (se completa en el commit siguiente)
+- **Tests**: `pytest` -> 154 pasan, 0 fallan, 0 avisos.
+
+### Que se probo, con la regla escrita ANTES de mirar el resultado
+
+Hipotesis del grupo: un evento no es un minuto cualquiera. Un reingreso ocurre
+justo despues de una expansion, asi que llega con la volatilidad RECIENTE alta
+por construccion. La nula emparejaba por volatilidad de los ultimos 20 dias,
+pero no por la de los ultimos minutos.
+
+Dos cambios, juntos y de una sola vez:
+
+1. **Volatilidad reciente como quinta variable de emparejamiento**: la
+   volatilidad realizada de los 60 minutos anteriores al instante, medida solo
+   con barras ya cerradas, partida en tercios. Vive en
+   `resultados.volatilidad_reciente`.
+2. **Estadistico de la familia principal estudentizado**: el promedio dividido
+   por su error estandar agrupado por fecha de Londres, calculado con la misma
+   funcion (`inferencia.media_agrupada`) en los datos reales y en cada
+   repeticion de la nula, igual que ya se hacia en H4.
+
+**Los estratos aguantaron**: con franja x dia x decil x tercio x volatilidad
+reciente quedan 1.462 estratos con datos, la mediana tiene 433 minutos
+candidatos, el percentil 10 tiene 95 y solo el 0,8% de los eventos cae en un
+estrato con menos de 100. No hizo falta bajar los deciles a quintiles.
+
+### Resultado: NO funciono
+
+| | antes | ahora |
+|---|---:|---:|
+| familia principal, tasa bruta | 0,0675 | **0,085** |
+| familia principal, IC 95% | [0,047, 0,096] | **[0,061, 0,116]** |
+| familia principal, p-valor medio | 0,4625 | 0,4571 |
+| **celda reingreso a 120 minutos** | 0,16 | **0,14** |
+| familia moderadores, tasa bruta | 0,0483 | 0,0483 |
+
+La celda de 120 minutos bajo de 0,16 a 0,14, que con 50 mercados es ruido, y la
+familia entera empeoro: su intervalo ya **no contiene el 5%**. La hipotesis
+queda descartada igual que la anterior.
+
+(La familia de moderadores no se movio ni un decimal, como debe ser: sale de
+regresiones y no toca la nula emparejada.)
+
+### Se aplica la regla: el horizonte de 120 minutos pasa a DESCRIPTIVO
+
+Segun lo acordado de antemano, el horizonte de 120 minutos **sale de
+`FAMILIA_PRINCIPAL`**, que queda con 6 pruebas (2 tipos x 3 horizontes). En
+config eso es `HORIZONTES_DESCRIPTIVOS = [120]`. El horizonte se sigue
+calculando y se sigue reportando en todas las tablas, y sigue dentro de
+`FAMILIA_MODERADORES` y de `FAMILIA_H4`, que si estan calibradas. Lo que ya no
+hace es confirmar nada.
+
+La frase para el pre-registro, tal cual: *en nuestro control negativo esa celda
+rechaza entre el 14% y el 16% de las veces bajo la hipotesis nula, asi que no
+la usamos para confirmar. No la escondemos: la reportamos con su medicion.*
+
+### PERO: sacar el 120 no arregla la familia
+
+Volviendo a leer los CSV ya guardados, sin correr nada nuevo:
+
+| configuracion | familia completa (8) | sin el horizonte 120 (6) |
+|---|---:|---:|
+| antes, tasa bruta | 0,0675 | 0,0633 |
+| antes, mercados con algun rechazo | 0,080 | 0,100 |
+| ahora, tasa bruta | 0,0850 | 0,0767 |
+| ahora, mercados con algun rechazo | 0,120 | 0,100 |
+
+El exceso **no estaba concentrado en esa celda**: esta repartido por toda la
+familia. Sacar el peor horizonte baja la tasa bruta uno o dos puntos y deja la
+tasa por familia en 0,10. Asi que la limitacion que hay que declarar no es
+"una celda mala" sino "la prueba principal corre al 6-8% en vez del 5%".
+
+### El hallazgo que importa de verdad
+
+Mirando el efecto medio en mercados SIN NINGUN PATRON, celda por celda:
+
+| tipo | 30 min | 60 min | 120 min | fin de franja |
+|---|---:|---:|---:|---:|
+| sostenida | **+0,0049** | **+0,0057** | **+0,0074** | **+0,0084** |
+| reingreso | −0,0002 | **−0,0027** | **−0,0063** | **−0,0029** |
+
+**Las ocho celdas tienen el signo que predicen H1 y H2.** Las sostenidas
+continuan y los reingresos se devuelven, en un mercado donde por construccion
+no hay nada que continuar ni que devolver. Los errores de Monte Carlo son de
+0,003 a 0,005, asi que cada celda por separado esta al borde; pero ocho de ocho
+con el signo esperado no es casualidad.
+
+O sea: **la propia definicion de los eventos produce un sesgo pequeno en la
+direccion de las hipotesis**. La nula emparejada absorbe la mayor parte, pero no
+toda, y ese resto es lo que hace que los p-valores se inclinen (promedio 0,457
+en vez de 0,50) y que la tasa de rechazo quede en 6-8%.
+
+**Consecuencia practica, y es la parte util**: un efecto real tiene que superar
+ese artefacto para ser creible. El artefacto mide entre 0,005 y 0,008 unidades
+de retorno normalizado. Eso pone un piso al tamano minimo que tiene sentido
+declarar como hallazgo, y hay que decirlo en el pre-registro.
+
+**Aviso para el punto E**: `TAMANOS_EFECTO` empieza en 0,02, que es solo dos o
+tres veces el artefacto. La curva de potencia en ese extremo va a estar medida
+sobre un suelo que no es cero, y conviene leerla con esa advertencia o agregar
+un tamano intermedio.
+
+No se busco el mecanismo exacto del sesgo: la regla acordada decia que este era
+el ultimo intento sobre calibracion. Queda como pregunta abierta y declarada.
+
+### Decisiones de esta parte
+
+1. **`HORIZONTES_DESCRIPTIVOS = [120]`**, por la regla escrita de antemano.
+2. **Se mantienen los dos cambios probados** aunque no mejoraran la
+   calibracion, por las mismas razones que el tercio: emparejar por volatilidad
+   reciente es a priori correcto (un evento llega despues de una expansion) y
+   los estratos siguen holgados; y estudentizar deja el estadistico de H1 y H2
+   consistente con el de H4 y con lo que recomiendan MacKinnon y Webb para
+   inferencia por aleatorizacion. **Ninguno de los dos compra calibracion**, y
+   los dos son reversibles: `PRINCIPAL_ESTUDENTIZADO = False` y quitar un
+   termino de la clave. Si el grupo prefiere la version mas simple, se revierte.
+3. No se probaron mas variantes. Fin de los intentos de calibracion.
+
+### Pendientes al cerrar el punto D
+
+- Declarar en el pre-registro la limitacion de la familia principal (6-8% en
+  vez de 5%) y el piso de 0,005 a 0,008 en unidades de retorno normalizado.
+- `CORRECCION_PRINCIPAL` se decide en el punto E por potencia.
+- Revisar si conviene agregar un tamano de efecto intermedio en el punto E.
+- Sigue todo lo anterior, ahora con 21 parametros `# POR DECIDIR`.

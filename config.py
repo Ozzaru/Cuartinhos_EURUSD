@@ -101,7 +101,11 @@ MODERADORES_PROBADOS = ["cerca_redondo", "cerca_extremo_previo", "comprimida"]  
 # =============================================================================
 NULA_REPETICIONES = 1000                     # repeticiones de la nula en las corridas normales
 NULA_REPETICIONES_POTENCIA = 500             # repeticiones en el control positivo (mas rapido; se reporta el error de Monte Carlo)
-NULA_DECILES_VOL = 10                        # numero de grupos de volatilidad usados para emparejar
+NULA_DECILES_VOL = 10                        # grupos de volatilidad de referencia (20 dias) usados para emparejar
+NULA_GRUPOS_VOL_RECIENTE = 3                 # grupos de volatilidad de los ultimos minutos usados para emparejar  # POR DECIDIR
+VENTANA_VOL_RECIENTE_MIN = 60                # minutos previos con los que se mide la volatilidad reciente  # POR DECIDIR
+MIN_BARRAS_VOL_RECIENTE = 30                 # barras minimas en esa ventana; con menos, el minuto va al grupo "sin dato"
+PRINCIPAL_ESTUDENTIZADO = True               # True = el estadistico de H1 y H2 es el t de la media, no la media cruda
 
 # =============================================================================
 #  8. INFERENCIA Y PRUEBAS MULTIPLES
@@ -112,11 +116,18 @@ REPORTAR_AMBAS_CORRECCIONES = True           # True = toda tabla trae Holm y Rom
 TIPO_ERRORES = "cluster"                     # "cluster" (agrupado por fecha de Londres) o "HAC" (Newey-West)
 RW_REPETICIONES = 1000                       # remuestreos de dias del bootstrap de Romano-Wolf
 
+# Horizontes que se REPORTAN pero no confirman nada. El de 120 minutos salio de
+# la familia principal porque en el control negativo rechaza entre el 14% y el
+# 16% de las veces bajo la hipotesis nula: con esa tasa no sirve para confirmar.
+# Se sigue informando en todas las tablas, con su medicion, no se esconde.
+HORIZONTES_DESCRIPTIVOS = [120]
+
 # Familia PRINCIPAL: H1 y H2. Cada prueba es (tipo, horizonte, cantidad, cola).
 #   cola "mayor" = se espera continuacion (> 0);  "menor" = se espera reversion (< 0).
+HORIZONTES_CONFIRMATORIOS = [h for h in HORIZONTES if h not in HORIZONTES_DESCRIPTIVOS]
 FAMILIA_PRINCIPAL = (
-    [("sostenida", h, "media", "mayor") for h in HORIZONTES]
-    + [("reingreso", h, "media", "menor") for h in HORIZONTES]
+    [("sostenida", h, "media", "mayor") for h in HORIZONTES_CONFIRMATORIOS]
+    + [("reingreso", h, "media", "menor") for h in HORIZONTES_CONFIRMATORIOS]
 )
 
 # Familia MODERADORES: H3. Cada prueba es (tipo, horizonte, coeficiente, cola).

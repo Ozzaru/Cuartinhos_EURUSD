@@ -158,6 +158,8 @@ def test_los_p_brutos_se_pueden_reemplazar_por_los_de_la_nula():
     tabla = inferencia.analizar(ev, cfg, cfg.FAMILIA_PRINCIPAL, semilla=1,
                                 p_brutos=inventados)
     assert np.allclose(tabla["p_bruto"].to_numpy(float), 0.001)
-    # Ocho pruebas, todas con el mismo p: Holm las lleva a 0.008.
-    assert np.allclose(tabla["p_holm"].to_numpy(float), 0.008)
+    # Seis pruebas (el horizonte de 120 es descriptivo), todas con el mismo p:
+    # Holm multiplica la mas chica por el tamano de la familia.
+    esperado = 0.001 * len(cfg.FAMILIA_PRINCIPAL)
+    assert np.allclose(tabla["p_holm"].to_numpy(float), esperado)
     assert tabla["rechaza"].all()

@@ -66,6 +66,41 @@ def ols_agrupado(y, X, inicio_grupo):
     return beta, error, G
 
 
+def media_agrupada(y, dia):
+    """
+    Promedio con error estandar agrupado por dia, y su estadistico t.
+
+    Es lo mismo que una regresion sobre una constante con errores agrupados,
+    pero escrita directo: como la nula la llama mil veces por celda, se evita
+    ordenar las filas usando `bincount` para sumar los residuos de cada dia.
+    La equivalencia con `ols_agrupado` esta comprobada en los tests.
+
+    Se usa para estudentizar el estadistico de H1 y H2, igual que en H4: si el
+    evento y su comparacion tienen varianzas distintas, dividir por el error
+    estandar absorbe esa diferencia.
+    """
+    y = np.asarray(y, dtype=float)
+    dia = np.asarray(dia)
+    n = len(y)
+    if n < 3:
+        return np.nan, np.nan, np.nan
+
+    media = float(y.mean())
+    residuo = y - media
+    por_dia = np.bincount(dia, weights=residuo)
+    grupos = int(np.count_nonzero(np.bincount(dia)))
+    if grupos < 2:
+        return media, np.nan, np.nan
+
+    # Sandwich para el caso de una sola columna de unos, con la misma
+    # correccion de muestra finita que usa `ols_agrupado`.
+    varianza = float((por_dia ** 2).sum()) / (n * n) * (grupos / (grupos - 1))
+    error = np.sqrt(max(varianza, 0.0))
+    if not error > 0:
+        return media, np.nan, np.nan
+    return media, float(error), float(media / error)
+
+
 def diferencia_agrupada(y, tratado, dia):
     """
     Diferencia de promedios entre tratados y no tratados, con error agrupado.

@@ -48,6 +48,14 @@ CARPETA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 TRAMOS = [(0, 10, "<10"), (10, 30, "10-29"), (30, 100, "30-99"),
           (100, 10 ** 9, ">=100")]
 
+# Que separa la corrida archivada (`antes`) de la actual (`ahora`). Se escribe
+# a mano al archivar, porque solo quien hizo el cambio sabe cual fue.
+DESCRIPCION_COMPARACION = (
+    "`antes` ya traia el emparejamiento por tercio de franja y los anuncios "
+    "corridos al dia habil. `ahora` agrega las dos cosas del ultimo intento: "
+    "la volatilidad reciente como quinta variable de emparejamiento y el "
+    "estadistico de la familia principal estudentizado.")
+
 
 # =============================================================================
 #  Una corrida
@@ -424,8 +432,7 @@ def _comparacion(pruebas, h4, cfg):
     antes_p = pd.read_csv(ruta_p)
     antes_h = pd.read_csv(ruta_h)
     partes = ["\n## 6. Comparacion contra la corrida anterior\n",
-              "`antes` es sin emparejar por tercio de franja y con los anuncios "
-              "de fin de semana perdidos; `ahora` es con los dos arreglos.\n",
+              DESCRIPCION_COMPARACION + "\n",
               "\n### Tasa bruta y promedio de p-valores, por familia\n"]
 
     filas = []

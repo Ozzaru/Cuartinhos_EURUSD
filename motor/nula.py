@@ -86,6 +86,10 @@ def preparar_candidatos(barras, cal, cfg, sigma=None, noticias=None):
     pos = np.searchsorted(cal["inicio_ns"].to_numpy(), barras.apertura_ns, side="right") - 1
     sirve_minuto = utilizable[pos]
 
+    vol_reciente = resultados.volatilidad_reciente(barras, cfg)
+    grupo_reciente = grupos_de_volatilidad_reciente(
+        vol_reciente, sirve_minuto, cfg.NULA_GRUPOS_VOL_RECIENTE)
+
     columnas = resultados.calcular_retornos(
         barras, cal, cfg,
         t_ns=barras.cierre_ns,
@@ -100,6 +104,8 @@ def preparar_candidatos(barras, cal, cfg, sigma=None, noticias=None):
         "dia_semana": cal["dia_semana"].to_numpy()[pos],
         "grupo_vol": grupo_vol[pos],
         "tercio": mod_franjas.tercio_de_franja(barras.cierre_ns, pos, cal),
+        "grupo_reciente": grupo_reciente,
+        "vol_reciente": vol_reciente,
         "sirve": sirve_minuto,
         "retornos": {h: columnas[f"ret_{h}"] for h in cfg.HORIZONTES},
         "grupo_vol_por_franja": grupo_vol,
@@ -108,31 +114,69 @@ def preparar_candidatos(barras, cal, cfg, sigma=None, noticias=None):
     }
 
 
-def claves_de_eventos(eventos, cal, candidatos):
+def claves_de_eventos(eventos, cal, candidatos, barras, cfg):
     """
-    La clave de emparejamiento de cada evento: franja, dia, decil y tercio.
+    La clave de emparejamiento de cada evento: franja, dia, decil, tercio y
+    grupo de volatilidad reciente.
 
-    El decil y el tercio se calculan aqui y no en el motor a proposito. El
-    decil necesita la distribucion de toda la muestra y el tercio es una
-    herramienta de comparacion: ninguno de los dos es una variable que
+    Estas cinco cosas se calculan aqui y no en el motor a proposito. El decil
+    necesita la distribucion de toda la muestra, y el tercio y la volatilidad
+    reciente son herramientas de comparacion: ninguna es una variable que
     explique nada, solo sirven para elegir con quien comparar.
+
+    El grupo de volatilidad reciente del evento se lee de la MISMA barra que
+    usa el motor para el precio del evento, la que cierra en ese instante.
     """
     pos_franja = eventos["pos_franja"].to_numpy(int)
+    t_evento = eventos["t_evento_ns"].to_numpy(np.int64)
+
+    barra = np.asarray(barras.indice_al_cierre(t_evento, cfg.TOLERANCIA_PRECIO_MIN))
+    reciente = np.where(barra >= 0,
+                        candidatos["grupo_reciente"][np.maximum(barra, 0)],
+                        cfg.NULA_GRUPOS_VOL_RECIENTE)
+
     return _clave(eventos["idx_franja"].to_numpy(int),
                   eventos["dia_semana"].to_numpy(int),
                   candidatos["grupo_vol_por_franja"][pos_franja],
-                  mod_franjas.tercio_de_franja(
-                      eventos["t_evento_ns"].to_numpy(np.int64), pos_franja, cal))
+                  mod_franjas.tercio_de_franja(t_evento, pos_franja, cal),
+                  reciente)
 
 
-def _clave(idx_franja, dia_semana, grupo_vol, tercio):
+def _clave(idx_franja, dia_semana, grupo_vol, tercio, grupo_reciente):
     """
-    Un entero unico por combinacion de franja, dia, decil de volatilidad y
-    tercio de la franja. Son las cuatro cosas en las que un minuto candidato
-    tiene que parecerse al evento real.
+    Un entero unico por combinacion de las CINCO cosas en las que un minuto
+    candidato tiene que parecerse al evento real: indice de franja, dia de
+    semana, decil de volatilidad de referencia, tercio de la franja y grupo de
+    volatilidad reciente.
+
+    Todos los codigos son enteros no negativos, asi que la mezcla es
+    reversible y dos combinaciones distintas nunca dan la misma clave.
     """
-    return (np.asarray(idx_franja) * 100000 + np.asarray(dia_semana) * 10000
-            + np.asarray(grupo_vol) * 100 + np.asarray(tercio))
+    clave = np.asarray(idx_franja, dtype=np.int64)
+    clave = clave * 10 + np.asarray(dia_semana, dtype=np.int64)
+    clave = clave * 100 + np.asarray(grupo_vol, dtype=np.int64)
+    clave = clave * 10 + np.asarray(tercio, dtype=np.int64)
+    return clave * 10 + np.asarray(grupo_reciente, dtype=np.int64)
+
+
+def grupos_de_volatilidad_reciente(vol, disponible, n_grupos):
+    """
+    Parte los minutos en grupos de igual tamano segun su volatilidad reciente.
+
+    Los cortes salen de los minutos CANDIDATOS, no de los eventos, por la misma
+    razon que en los deciles: asi ningun grupo queda sin minutos de donde
+    sortear. Los minutos sin suficiente historia van a un grupo aparte, el
+    numero `n_grupos`, en vez de quedar fuera: un evento sin historia tiene que
+    poder compararse con otros minutos sin historia.
+    """
+    grupo = np.full(len(vol), n_grupos, dtype=int)
+    utiles = disponible & np.isfinite(vol)
+    if not utiles.any():
+        return grupo
+    valores = vol[utiles]
+    cortes = np.quantile(valores, np.linspace(0, 1, n_grupos + 1)[1:-1])
+    grupo[utiles] = np.searchsorted(cortes, valores, side="right")
+    return grupo
 
 
 def _sortear(rng, pools, claves_evento, franja_evento, pos_franja_candidato,
@@ -194,6 +238,7 @@ def correr(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
     colas = {t: c for t, _, _, c in cfg.FAMILIA_PRINCIPAL}
     filas, distribuciones = [], {}
     rng = np.random.default_rng(semilla)
+    dia_cand = candidatos["dia_codigo"]
 
     pos_cand = candidatos["pos_franja"]
 
@@ -213,7 +258,7 @@ def correr(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
                 continue
 
             franja_evento = usables["pos_franja"].to_numpy(int)
-            claves = claves_de_eventos(usables, cal, candidatos)
+            claves = claves_de_eventos(usables, cal, candidatos, barras, cfg)
 
             indices, usable = _sortear(rng, pools, claves, franja_evento, pos_cand,
                                        repeticiones)
@@ -222,10 +267,24 @@ def correr(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
                 continue
 
             direccion = usables["direccion"].to_numpy(float)[usable]
-            observado = float(np.mean(usables[columna].to_numpy(float)[usable]))
+            y = usables[columna].to_numpy(float)[usable]
+            observado = float(np.mean(y))
             nulas = np.mean(ret_cand[indices[:, usable]] * direccion[None, :], axis=1)
 
+            # Version estudentizada: el mismo promedio, dividido por su error
+            # estandar agrupado por dia. Se calcula igual en los datos reales y
+            # en cada repeticion, con la misma funcion.
+            dia_real = pd.factorize(pd.DatetimeIndex(usables["fecha_londres"]))[0][usable]
+            _, _, t_obs = mod_inferencia.media_agrupada(y, dia_real)
+            t_nulas = np.full(repeticiones, np.nan)
+            for r in range(repeticiones):
+                sorteo = indices[r, usable]
+                _, _, t_nulas[r] = mod_inferencia.media_agrupada(
+                    ret_cand[sorteo] * direccion, dia_cand[sorteo])
+            t_validas = t_nulas[np.isfinite(t_nulas)]
+
             cola = colas.get(tipo, "dos")
+            estudentizado = bool(getattr(cfg, "PRINCIPAL_ESTUDENTIZADO", False))
             filas.append({
                 "tipo": tipo, "horizonte": h, "cola": cola,
                 "n_eventos": int(usable.sum()),
@@ -233,10 +292,19 @@ def correr(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
                 "media_observada": observado,
                 "media_nula": float(np.mean(nulas)),
                 "sd_nula": float(np.std(nulas, ddof=1)) if len(nulas) > 1 else np.nan,
-                "p_una_cola": _p_una_cola(observado, nulas, cola),
-                "p_dos_colas": _p_dos_colas(observado, nulas),
+                "t_observado": t_obs,
+                "p_una_cola_media": _p_una_cola(observado, nulas, cola),
+                "p_dos_colas_media": _p_dos_colas(observado, nulas),
+                "p_una_cola_t": _p_una_cola(t_obs, t_validas, cola),
+                "p_dos_colas_t": _p_dos_colas(t_obs, t_validas),
                 "repeticiones": repeticiones,
             })
+            # `p_una_cola` y `p_dos_colas` son las que usa el resto del
+            # programa: apuntan a la version elegida en config.
+            filas[-1]["p_una_cola"] = filas[-1][
+                "p_una_cola_t" if estudentizado else "p_una_cola_media"]
+            filas[-1]["p_dos_colas"] = filas[-1][
+                "p_dos_colas_t" if estudentizado else "p_dos_colas_media"]
             distribuciones[(tipo, h)] = nulas
 
     return pd.DataFrame(filas), distribuciones
@@ -303,7 +371,7 @@ def correr_h4(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
             del_tipo = tabla_eventos[tabla_eventos["tipo"] == tipo]
             usables = del_tipo[np.isfinite(del_tipo[columna].to_numpy(float))
                                & np.isfinite(del_tipo["noticia"].to_numpy(float))]
-            claves = (claves_de_eventos(usables, cal, candidatos)
+            claves = (claves_de_eventos(usables, cal, candidatos, barras, cfg)
                       if len(usables) else np.array([], dtype=int))
             filas.append(_una_prueba_h4(rng, usables, claves, columna, tipo, h,
                                         ret_cand, pools, pos_cand, dia_cand,
@@ -376,7 +444,8 @@ def _armar_pools(candidatos, disponible):
     claves = _clave(candidatos["idx_franja"][posiciones],
                     candidatos["dia_semana"][posiciones],
                     candidatos["grupo_vol"][posiciones],
-                    candidatos["tercio"][posiciones])
+                    candidatos["tercio"][posiciones],
+                    candidatos["grupo_reciente"][posiciones])
     orden = np.argsort(claves, kind="stable")
     claves_ord, posiciones_ord = claves[orden], posiciones[orden]
     cortes = np.flatnonzero(np.diff(claves_ord)) + 1
@@ -388,8 +457,10 @@ def _armar_pools(candidatos, disponible):
 def _fila_vacia(tipo, h, cola):
     return {"tipo": tipo, "horizonte": h, "cola": cola, "n_eventos": 0,
             "n_descartados": 0, "media_observada": np.nan, "media_nula": np.nan,
-            "sd_nula": np.nan, "p_una_cola": np.nan, "p_dos_colas": np.nan,
-            "repeticiones": 0}
+            "sd_nula": np.nan, "t_observado": np.nan,
+            "p_una_cola_media": np.nan, "p_dos_colas_media": np.nan,
+            "p_una_cola_t": np.nan, "p_dos_colas_t": np.nan,
+            "p_una_cola": np.nan, "p_dos_colas": np.nan, "repeticiones": 0}
 
 
 def _p_una_cola(observado, nulas, cola):
