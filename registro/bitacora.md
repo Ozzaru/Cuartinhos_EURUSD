@@ -981,3 +981,141 @@ el ultimo intento sobre calibracion. Queda como pregunta abierta y declarada.
 - Revisar si conviene agregar un tamano de efecto intermedio en el punto E.
 - Sigue todo lo anterior, ahora con 21 parametros `# POR DECIDIR`
   (`NULA_GRUPOS_VOL_RECIENTE` y `VENTANA_VOL_RECIENTE_MIN` son los nuevos).
+
+---
+
+## TRASPASO — cierre de la sesion del 2026-09-23
+
+Esta seccion es el punto de entrada para quien abra el punto E. Todo lo de
+arriba es el detalle; esto es lo que no se puede perder en el camino.
+
+**Estado**: puntos 0, A, B, C y D cerrados. 154 tests pasan, 0 fallan, 0
+avisos. Rama `main` limpia, sin remoto, nada subido a internet. 21 parametros
+marcados `# POR DECIDIR`. **El punto E no esta empezado.**
+
+### 1. El piso: los eventos traen un sesgo propio, de 0,005 a 0,008
+
+En 50 mercados simulados **sin ningun patron** — camino aleatorio, donde por
+construccion no hay nada que continuar ni nada que devolverse — el efecto medio
+celda por celda es:
+
+| tipo | 30 min | 60 min | 120 min | fin de franja |
+|---|---:|---:|---:|---:|
+| sostenida | **+0,0049** | **+0,0057** | **+0,0074** | **+0,0084** |
+| reingreso | −0,0002 | **−0,0027** | **−0,0063** | **−0,0029** |
+
+**Las ocho celdas tienen el signo que predicen H1 y H2.** Con errores de Monte
+Carlo de 0,003 a 0,005, cada celda por separado esta al borde; el patron
+completo no lo esta. La conclusion es que **la definicion misma de los eventos
+produce un sesgo pequeno en la direccion de las hipotesis**: la nula emparejada
+absorbe la mayor parte, y el resto es lo que inclina los p-valores (promedio
+0,457 en vez de 0,50) y lo que deja la tasa de rechazo en 6-8%.
+
+**Consecuencia que hay que arrastrar a todo lo que venga**: un efecto medido
+por debajo de **0,008 unidades de retorno normalizado no se distingue del
+artefacto**. Ese es el piso de lo que se puede declarar como hallazgo. Va al
+pre-registro (punto F) y hay que leer con el a la vista la curva de potencia
+del punto E, porque `TAMANOS_EFECTO` empieza en 0,02: solo dos o tres veces el
+artefacto.
+
+No se busco el mecanismo exacto del sesgo. Es una pregunta abierta y declarada,
+no un cabo suelto olvidado: la regla acordada de antemano cerro los intentos de
+calibracion despues del segundo fracaso.
+
+### 2. El horizonte de 120 minutos es descriptivo, y la familia corre al 6-8%
+
+`HORIZONTES_DESCRIPTIVOS = [120]`. El horizonte salio de `FAMILIA_PRINCIPAL`,
+que quedo con 6 pruebas, porque en el control negativo esa celda rechaza entre
+el 14% y el 16% bajo la nula. Se sigue calculando, se sigue reportando en todas
+las tablas y sigue dentro de `FAMILIA_MODERADORES` y `FAMILIA_H4`, que si estan
+calibradas. Lo unico que ya no hace es confirmar.
+
+**Y esto es lo importante: sacarlo NO arregla la familia.** Sin el horizonte de
+120 la tasa bruta baja a 0,0767 y la tasa por familia se queda en 0,10, igual
+que con el. El exceso esta repartido, no concentrado en una celda. Por lo
+tanto **la limitacion que se declara en el pre-registro no es "una celda mala"
+sino "la prueba principal corre entre 6% y 8% en vez del 5%"**. Quien escriba
+el punto F no debe suavizar esa frase.
+
+### 3. Se mantienen dos cambios que no mejoraron nada medible
+
+El emparejamiento por **volatilidad reciente** (quinta variable de la clave) y
+el **estadistico estudentizado** de la familia principal
+(`PRINCIPAL_ESTUDENTIZADO = True`) se conservan aunque no compraron
+calibracion:
+
+- son correctos **a priori**, no por resultado: un evento llega justo despues
+  de una expansion, asi que su volatilidad reciente es alta por construccion, y
+  estudentizar deja H1 y H2 consistentes con H4 y con MacKinnon y Webb (2020);
+- los estratos siguen holgados: 1.462 con datos, mediana de 433 candidatos,
+  solo 0,8% de eventos bajo 100;
+- **ninguno de los dos se adopto para mejorar un numero**, que es justo lo que
+  un pre-registro busca impedir.
+
+Los dos son reversibles en una linea (`PRINCIPAL_ESTUDENTIZADO = False` y
+quitar un termino de `nula._clave`). Si el grupo prefiere la version simple, se
+revierte y se vuelve a correr el control negativo; la decision sigue abierta.
+
+### 4. Pendientes para el punto E
+
+> Nota: el mensaje que pidio este traspaso anunciaba una lista de pendientes
+> "escritos abajo" que no llego. Lo que sigue esta reconstruido del encargo
+> original y de lo acordado en los puntos A a D. **El grupo la reemplaza o la
+> completa antes de empezar.**
+
+Lo que el punto E tiene que producir:
+
+1. `simulacion/inyeccion.py`: efecto conocido inyectado sobre el mercado
+   simulado, en unidades de retorno normalizado.
+2. `experimentos/control_positivo.py`: curva de potencia sobre
+   `TAMANOS_EFECTO` x `ANIOS_POTENCIA`, con sesgo del estimador, efecto minimo
+   detectable al 80% de potencia y su grafico PNG.
+3. `motor/auditoria.py` y `experimentos/auditoria_causal.py`: auditoria de
+   truncamiento con 40 cortes al azar, incluyendo cortes **dentro** de una
+   franja. Con una version deliberadamente filtrada del motor que viva **solo
+   en el test** y que la auditoria tenga que DETECTAR; si no la detecta, la
+   auditoria no sirve.
+
+Decisiones que el punto E tiene que cerrar:
+
+4. **`CORRECCION_PRINCIPAL`** (Holm contra Romano-Wolf): se decide comparando
+   **potencia** sobre la misma curva, no tamano. Holm es valido bajo
+   dependencia arbitraria; Romano-Wolf aprovecha la correlacion entre pruebas y
+   deberia dar mas potencia. Se reportan las dos igual
+   (`REPORTAR_AMBAS_CORRECCIONES = True`).
+5. **Tamano de efecto intermedio**: con el piso de 0,005-0,008 medido, el salto
+   de 0 a 0,02 deja sin cubrir justo la zona donde el artefacto y el efecto
+   real se confunden. Evaluar agregar 0,01 (y quiza 0,035) a
+   `TAMANOS_EFECTO`.
+6. **Confirmar `MIN_DIAS_TRATADOS = 15`**: la evidencia del punto D lo respalda
+   (el minimo observado de dias tratados fue 18).
+7. **Decidir si se revierten los dos cambios del punto 3** de arriba.
+
+Reglas de procedimiento que siguen vigentes en el punto E:
+
+8. **Piloto primero**, midiendo tiempo **y** memoria, con los procesos
+   limitados por `experimentos/recursos.py` a ~70% de la RAM disponible.
+   **Detenerse y esperar OK** antes de la corrida completa.
+9. Si una corrida amenaza con pasar de una hora: reducir repeticiones o
+   duraciones, decirlo en el informe con su error de Monte Carlo, y seguir. **No
+   se sacrifican los controles, se sacrifica tamano de muestra.**
+10. Si un control falla, **no se ajustan umbrales ni metodos para que pase**: se
+    explica la causa probable y se proponen opciones.
+
+### Como retomar
+
+```
+cd C:\WorkSpace\10_Code\Cuartinhos_EURUSD
+.venv\Scripts\activate
+pytest                                            154 pasan, 0 avisos
+python -m experimentos.control_negativo --piloto  tiempo y memoria
+python -m experimentos.control_negativo           corrida completa (~18 min)
+python -m experimentos.control_negativo --solo-reporte   rehace el informe
+```
+
+Los resultados guardados del punto D estan en `resultados/` (ignorada por git):
+los CSV permiten rehacer cualquier tabla de arriba sin volver a correr nada.
+
+**Lo que no cambia**: no se descargan ni se miran datos reales; no se toca nada
+dentro de `Cuartinhos_Goty` ni se importa desde ahi; `docs/papers/` es del
+grupo y solo se lee si se pide; git es local y no se sube nada.
