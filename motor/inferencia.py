@@ -27,10 +27,30 @@ Sobre las dos correcciones:
   su propio remuestreo: trabaja siempre sobre los estadisticos t de la
   regresion, remuestreando DIAS con reemplazo. No usa los p-valores de la nula.
   Esa diferencia esta declarada a proposito y va al pre-registro.
+
+  Consecuencia (punto E): en la familia principal Holm y Romano-Wolf NO son dos
+  correcciones del mismo test sino dos tests distintos. Holm corrige los
+  p-valores de la nula emparejada, a una cola; Romano-Wolf prueba el promedio
+  contra cero con el t de la regresion, a dos colas y sin la nula. Por eso Holm
+  quedo fijado como principal sin mirar la curva de potencia, y Romano-Wolf se
+  reporta como prueba secundaria con la etiqueta ETIQUETA_ROMANO_WOLF.
+
+Cada familia tiene su nivel: la principal usa ALFA_PRINCIPAL (fijado por una
+regla escrita antes de la curva de potencia) y las demas usan ALFA.
 """
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+# Como se rotula Romano-Wolf en toda tabla: no es otra correccion del mismo
+# test, es otro test.
+ETIQUETA_ROMANO_WOLF = ("Romano-Wolf (prueba secundaria: t de la regresion contra "
+                        "cero, dos colas, sin la nula)")
+
+
+def alfa_de_familia(nombre, cfg):
+    """El nivel de una familia: la principal usa ALFA_PRINCIPAL; las demas, ALFA."""
+    return cfg.ALFA_PRINCIPAL if nombre == "principal" else cfg.ALFA
 
 
 # =============================================================================
@@ -425,7 +445,7 @@ def romano_wolf(celdas, familia, dias, repeticiones, semilla):
 #  Entrada principal
 # =============================================================================
 def analizar(eventos, cfg, familia, semilla, p_brutos=None, con_romano_wolf=False,
-             celdas=None, dias=None, repeticiones_rw=None):
+             celdas=None, dias=None, repeticiones_rw=None, alfa=None):
     """
     Tabla final de una familia: estadistico, p bruto, p corregido y decision.
 
@@ -433,7 +453,11 @@ def analizar(eventos, cfg, familia, semilla, p_brutos=None, con_romano_wolf=Fals
     calculados. Asi la familia principal se corrige sobre los p-valores de la
     nula emparejada, que es la prueba que se va a pre-registrar, y no sobre el
     t de una regresion.
+
+    `alfa` es el nivel con que se decide `rechaza`; si no se indica, ALFA. La
+    familia principal se analiza con ALFA_PRINCIPAL (ver `alfa_de_familia`).
     """
+    alfa = cfg.ALFA if alfa is None else alfa
     if celdas is None:
         celdas, dias = construir_celdas(eventos, cfg)
     if con_romano_wolf and dias is None:
@@ -453,7 +477,7 @@ def analizar(eventos, cfg, familia, semilla, p_brutos=None, con_romano_wolf=Fals
 
     principal = "p_holm" if cfg.CORRECCION_PRINCIPAL == "holm" else "p_romano_wolf"
     tabla["p_corregido"] = tabla[principal]
-    tabla["rechaza"] = tabla["p_corregido"].to_numpy(float) <= cfg.ALFA
+    tabla["rechaza"] = tabla["p_corregido"].to_numpy(float) <= alfa
     return tabla
 
 

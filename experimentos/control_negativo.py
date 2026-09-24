@@ -25,6 +25,7 @@ Uso:
     python -m experimentos.control_negativo --piloto     mide tiempo y memoria
     python -m experimentos.control_negativo              corrida completa
     python -m experimentos.control_negativo --cortos 20 --largos 6
+    python -m experimentos.control_negativo --alfa-principal   regla de ALFA_PRINCIPAL
 """
 import argparse
 import os
@@ -79,7 +80,7 @@ def corrida_corta(semilla, anios, cambios, con_romano_wolf, repeticiones):
         eventos, cfg, cfg.FAMILIA_PRINCIPAL, semilla,
         p_brutos=inferencia.p_brutos_desde_nula(tabla_nula, cfg),
         celdas=celdas, dias=dias, con_romano_wolf=con_romano_wolf,
-        repeticiones_rw=repeticiones)
+        repeticiones_rw=repeticiones, alfa=cfg.ALFA_PRINCIPAL)
     principal["familia"] = "principal"
 
     mods = inferencia.analizar(
@@ -190,13 +191,14 @@ def resumen_por_familia(tabla, cfg, columna="p_corregido"):
     """Tasa de rechazos por familia, por prueba y por familia completa."""
     filas = []
     for familia, bloque in tabla.groupby("familia"):
+        alfa = inferencia.alfa_de_familia(familia, cfg)
         por_prueba = bloque[np.isfinite(bloque["p_bruto"].to_numpy(float))]
-        brutos = int((por_prueba["p_bruto"].to_numpy(float) <= cfg.ALFA).sum())
+        brutos = int((por_prueba["p_bruto"].to_numpy(float) <= alfa).sum())
         total = len(por_prueba)
-        corregidos = int((bloque[columna].to_numpy(float) <= cfg.ALFA).sum())
+        corregidos = int((bloque[columna].to_numpy(float) <= alfa).sum())
         mercados = bloque["mercado"].nunique()
         con_alguno = int(bloque.groupby("mercado")[columna].apply(
-            lambda s: bool(np.nansum(s.to_numpy(float) <= cfg.ALFA) > 0)).sum())
+            lambda s: bool(np.nansum(s.to_numpy(float) <= alfa) > 0)).sum())
         bajo, alto = intervalo_binomial(brutos, total)
         bajo_f, alto_f = intervalo_binomial(con_alguno, mercados)
         filas.append({
@@ -255,13 +257,14 @@ def umbral_calibrado(pruebas, cfg, columna="p_holm", remuestreos=2000, semilla=7
     rng = np.random.default_rng(semilla)
     filas = []
     for familia, bloque in pruebas.groupby("familia"):
+        alfa = inferencia.alfa_de_familia(familia, cfg)
         minimos = bloque.groupby("mercado")[columna].min().to_numpy(float)
         minimos = minimos[np.isfinite(minimos)]
         if len(minimos) < 5:
             continue
-        corte = float(np.quantile(minimos, cfg.ALFA))
+        corte = float(np.quantile(minimos, alfa))
         sorteos = rng.integers(0, len(minimos), (remuestreos, len(minimos)))
-        cortes = np.quantile(minimos[sorteos], cfg.ALFA, axis=1)
+        cortes = np.quantile(minimos[sorteos], alfa, axis=1)
         bajo, alto = np.percentile(cortes, [2.5, 97.5])
         filas.append({
             "familia": familia, "mercados": len(minimos),
@@ -269,9 +272,66 @@ def umbral_calibrado(pruebas, cfg, columna="p_holm", remuestreos=2000, semilla=7
             "ic95": f"[{bajo:.4f}, {alto:.4f}]",
             "ancho_ic": float(alto - bajo),
             "error_mc": float(np.std(cortes, ddof=1)),
-            "tasa_con_alfa_005": float((minimos <= cfg.ALFA).mean()),
+            "tasa_con_alfa_005": float((minimos <= alfa).mean()),
         })
     return pd.DataFrame(filas)
+
+
+def tasa_por_prueba_ic(pruebas, alfa, remuestreos, semilla, columna="p_bruto"):
+    """
+    Tasa por prueba (p <= alfa) con su intervalo al 95%, remuestreando MERCADOS.
+
+    La tasa cuenta pruebas, pero las pruebas de un mismo mercado no son
+    independientes: los horizontes de un mismo tipo miden el mismo evento, y
+    sostenida y reingreso comparten la ruptura. Wilson las trata como
+    independientes y da un intervalo mas angosto de lo que corresponde. Aqui se
+    sortea el mercado, que es la unidad que si es independiente, y en cada
+    remuestreo la tasa se recalcula como rechazos totales / pruebas totales.
+
+    Devuelve (tasa, bajo, alto), con el intervalo percentil.
+    """
+    p = pruebas[columna].to_numpy(float)
+    finitas = np.isfinite(p)
+    tabla = pd.DataFrame({"mercado": pruebas["mercado"].to_numpy()[finitas],
+                          "rechaza": (p[finitas] <= alfa).astype(float)})
+    por_mercado = tabla.groupby("mercado")["rechaza"].agg(["sum", "count"])
+    rechazos = por_mercado["sum"].to_numpy(float)
+    total = por_mercado["count"].to_numpy(float)
+    if total.sum() == 0:
+        return np.nan, np.nan, np.nan
+
+    rng = np.random.default_rng(semilla)
+    sorteo = rng.integers(0, len(total), size=(remuestreos, len(total)))
+    tasas = rechazos[sorteo].sum(axis=1) / total[sorteo].sum(axis=1)
+    bajo, alto = np.percentile(tasas, [2.5, 97.5])
+    return float(rechazos.sum() / total.sum()), float(bajo), float(alto)
+
+
+def decidir_alfa_principal(ic_alfa, ic_estricto, alfa, alfa_estricto):
+    """
+    La regla que fija ALFA_PRINCIPAL, escrita ANTES de ver la curva de potencia.
+
+      - Si el intervalo de la tasa por prueba con `alfa` contiene a `alfa`, no
+        hay exceso demostrado: se queda `alfa`.
+      - Si ese intervalo queda entero POR ENCIMA de `alfa` (exceso demostrado)
+        y con `alfa_estricto` no se demuestra exceso (el borde inferior no pasa
+        de `alfa_estricto`), se baja a `alfa_estricto`.
+
+    Cualquier otro caso no esta previsto por la regla y levanta un error: no se
+    decide sobre la marcha, se consulta al grupo.
+
+    `ic_alfa` e `ic_estricto` son tuplas (tasa, bajo, alto).
+    """
+    _, bajo, alto = ic_alfa
+    if bajo <= alfa <= alto:
+        return alfa
+    _, bajo_estricto, _ = ic_estricto
+    if bajo > alfa and bajo_estricto <= alfa_estricto:
+        return alfa_estricto
+    raise ValueError("la regla de ALFA_PRINCIPAL no cubre este caso: "
+                     f"IC con {alfa} = [{bajo:.4f}, {alto:.4f}], "
+                     f"borde inferior con {alfa_estricto} = {bajo_estricto:.4f}. "
+                     "Hay que consultar al grupo.")
 
 
 def mercados_necesarios(ancho_actual, mercados_actuales, ancho_objetivo):
@@ -354,10 +414,15 @@ def main():
                             help="rehace el markdown y el grafico desde los CSV ya guardados")
     analizador.add_argument("--archivar", action="store_true",
                             help="guarda los resultados actuales como 'previo' para comparar")
+    analizador.add_argument("--alfa-principal", action="store_true",
+                            help="aplica la regla de ALFA_PRINCIPAL a los CSV guardados")
     opciones = analizador.parse_args()
 
     if opciones.archivar:
         _archivar()
+        return
+    if opciones.alfa_principal:
+        _alfa_principal()
         return
     if opciones.solo_reporte:
         _rehacer_reporte()
@@ -400,6 +465,58 @@ def main():
     print(f"\nListo en {minutos:.1f} minutos. Reportes en resultados/")
 
 
+def _alfa_principal():
+    """
+    Aplica la regla de ALFA_PRINCIPAL a los CSV guardados del control negativo.
+
+    Solo lee: no corre ningun mercado. Mira la familia principal tal como quedo
+    (sin los horizontes descriptivos) y calcula la tasa por prueba con su
+    intervalo remuestreando mercados, con ALFA y con ALFA_ESTRICTO.
+    """
+    cfg = config.copia()
+    pruebas = pd.read_csv(os.path.join(CARPETA, "control_negativo.csv"))
+    confirmatorios = {str(h) for h in cfg.HORIZONTES_CONFIRMATORIOS}
+    principal = pruebas[(pruebas["familia"] == "principal")
+                        & pruebas["horizonte"].astype(str).isin(confirmatorios)]
+
+    filas, intervalos = [], {}
+    for alfa in (cfg.ALFA, cfg.ALFA_ESTRICTO):
+        tasa, bajo, alto = tasa_por_prueba_ic(principal, alfa,
+                                              cfg.REMUESTREOS_IC_MERCADOS, cfg.SEMILLA)
+        intervalos[alfa] = (tasa, bajo, alto)
+        p = principal["p_bruto"].to_numpy(float)
+        p = p[np.isfinite(p)]
+        w_bajo, w_alto = intervalo_binomial(int((p <= alfa).sum()), len(p))
+        filas.append({
+            "alfa": alfa, "mercados": principal["mercado"].nunique(), "pruebas": len(p),
+            "tasa_por_prueba": tasa,
+            "ic95_mercados": f"[{bajo:.4f}, {alto:.4f}]",
+            "exceso_demostrado": bool(bajo > alfa),
+            "ic95_wilson_referencia": f"[{w_bajo:.4f}, {w_alto:.4f}]",
+        })
+    decision = decidir_alfa_principal(intervalos[cfg.ALFA], intervalos[cfg.ALFA_ESTRICTO],
+                                      cfg.ALFA, cfg.ALFA_ESTRICTO)
+
+    texto = "\n".join([
+        "# ALFA_PRINCIPAL: la regla aplicada al control negativo\n",
+        f"Familia principal sin los horizontes descriptivos "
+        f"({len(cfg.FAMILIA_PRINCIPAL)} pruebas por mercado), p-valores brutos de la "
+        f"nula emparejada, CSV del punto D. Intervalo percentil al 95% remuestreando "
+        f"MERCADOS ({cfg.REMUESTREOS_IC_MERCADOS} remuestreos). Wilson se muestra solo "
+        f"como referencia: trata las pruebas como independientes y no lo son.\n",
+        _tabla(pd.DataFrame(filas).round(4)),
+        "",
+        f"**Resultado de la regla: ALFA_PRINCIPAL = {decision}.**",
+        f"En config.py tiene que figurar ALFA_PRINCIPAL = {decision}; hoy figura "
+        f"{cfg.ALFA_PRINCIPAL}.",
+        "",
+    ])
+    os.makedirs(CARPETA, exist_ok=True)
+    with open(os.path.join(CARPETA, "alfa_principal.md"), "w", encoding="utf-8") as f:
+        f.write(texto)
+    print(texto)
+
+
 def _archivar():
     """
     Guarda los resultados actuales con el sufijo `_previo`.
@@ -438,11 +555,12 @@ def _comparacion(pruebas, h4, cfg):
     filas = []
     for familia in sorted(set(pruebas["familia"]) | set(antes_p["familia"])):
         fila = {"familia": familia}
+        alfa = inferencia.alfa_de_familia(familia, cfg)
         for etiqueta, marco in (("antes", antes_p), ("ahora", pruebas)):
             bloque = marco[marco["familia"] == familia]
             p = bloque["p_bruto"].to_numpy(float)
             p = p[np.isfinite(p)]
-            fila[f"tasa_{etiqueta}"] = float((p <= cfg.ALFA).mean()) if len(p) else np.nan
+            fila[f"tasa_{etiqueta}"] = float((p <= alfa).mean()) if len(p) else np.nan
             fila[f"p_medio_{etiqueta}"] = float(p.mean()) if len(p) else np.nan
         filas.append(fila)
     partes.append(_tabla(pd.DataFrame(filas).round(4)))
@@ -455,9 +573,11 @@ def _comparacion(pruebas, h4, cfg):
                         & (antes_p["horizonte"].astype(str) == str(h))]
         filas.append({
             "tipo": tipo, "horizonte": h,
-            "tasa_antes": float((viejo["p_bruto"].to_numpy(float) <= cfg.ALFA).mean())
+            "tasa_antes": float((viejo["p_bruto"].to_numpy(float)
+                                 <= cfg.ALFA_PRINCIPAL).mean())
             if len(viejo) else np.nan,
-            "tasa_ahora": float((bloque["p_bruto"].to_numpy(float) <= cfg.ALFA).mean()),
+            "tasa_ahora": float((bloque["p_bruto"].to_numpy(float)
+                                 <= cfg.ALFA_PRINCIPAL).mean()),
             "p_medio_antes": float(np.nanmean(viejo["p_bruto"].to_numpy(float)))
             if len(viejo) else np.nan,
             "p_medio_ahora": float(np.nanmean(bloque["p_bruto"].to_numpy(float))),
@@ -561,13 +681,17 @@ def _markdown(pruebas, rupturas, h4, conteos, cfg, minutos, n_cortos, n_largos,
     escribe(_tabla(resumen.round(4)))
 
     if con_rw and pruebas["p_romano_wolf"].notna().any():
-        escribe("\n### Holm contra Romano-Wolf\n")
+        escribe("\n### Holm (principal) y Romano-Wolf (prueba secundaria)\n")
+        escribe(f"Proporcion de mercados con algun rechazo. La columna "
+                f"`p_romano_wolf` es {inferencia.ETIQUETA_ROMANO_WOLF}: no es otra "
+                f"correccion del mismo test, es otro test.\n")
         comparacion = []
         for familia, bloque in pruebas.groupby("familia"):
+            alfa = inferencia.alfa_de_familia(familia, cfg)
             fila = {"familia": familia}
             for metodo in ("p_holm", "p_romano_wolf"):
                 por_mercado = bloque.groupby("mercado")[metodo].apply(
-                    lambda s: bool(np.nansum(s.to_numpy(float) <= cfg.ALFA) > 0))
+                    lambda s: bool(np.nansum(s.to_numpy(float) <= alfa) > 0))
                 fila[metodo] = por_mercado.mean()
             comparacion.append(fila)
         escribe(_tabla(pd.DataFrame(comparacion).round(4)))
@@ -579,7 +703,7 @@ def _markdown(pruebas, rupturas, h4, conteos, cfg, minutos, n_cortos, n_largos,
         ["tipo", "horizonte"]).apply(
         lambda g: pd.Series({
             "mercados": len(g),
-            "tasa": float((g["p_bruto"].to_numpy(float) <= cfg.ALFA).mean()),
+            "tasa": float((g["p_bruto"].to_numpy(float) <= cfg.ALFA_PRINCIPAL).mean()),
             "p_medio": float(np.nanmean(g["p_bruto"].to_numpy(float)))}),
         include_groups=False).reset_index()
     escribe(_tabla(detalle.round(4)))
@@ -632,7 +756,8 @@ def _markdown(pruebas, rupturas, h4, conteos, cfg, minutos, n_cortos, n_largos,
             "de p mas duro que 0,05, calibrado sobre estos mismos mercados. "
             "**No esta aplicado en ninguna parte del motor**: es una propuesta "
             "para que el grupo decida.\n")
-    for metodo, etiqueta in (("p_holm", "Holm"), ("p_romano_wolf", "Romano-Wolf")):
+    for metodo, etiqueta in (("p_holm", "Holm"),
+                             ("p_romano_wolf", inferencia.ETIQUETA_ROMANO_WOLF)):
         if not pruebas[metodo].notna().any():
             continue
         tabla = umbral_calibrado(pruebas, cfg, columna=metodo)

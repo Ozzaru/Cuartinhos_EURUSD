@@ -102,6 +102,65 @@ def test_los_tramos_de_dias_tratados_no_se_pisan_ni_dejan_huecos():
         assert alto == siguiente, "los tramos tienen que encadenarse"
 
 
+# --- tasa por prueba e intervalo por mercados ------------------------------
+
+def pruebas_con_rechazos(rechazos_por_mercado, pruebas_por_mercado=6):
+    """Una tabla con p = 0,001 en las pruebas que rechazan y 0,5 en el resto."""
+    filas = []
+    for mercado, rechazos in enumerate(rechazos_por_mercado):
+        for k in range(pruebas_por_mercado):
+            filas.append({"mercado": mercado, "p_bruto": 0.001 if k < rechazos else 0.5})
+    return pd.DataFrame(filas)
+
+
+def test_la_tasa_por_prueba_cuenta_pruebas_y_su_intervalo_la_contiene():
+    tabla = pruebas_con_rechazos([0, 1, 0, 2, 0, 0, 1, 0, 0, 0])
+    tasa, bajo, alto = cn.tasa_por_prueba_ic(tabla, 0.05, 2000, semilla=1)
+    assert tasa == pytest.approx(4 / 60)
+    assert bajo <= tasa <= alto
+
+
+def test_rechazos_amontonados_en_un_mercado_ensanchan_el_intervalo():
+    # Misma tasa por prueba (6 de 60). Repartidos, cada mercado aporta uno; en
+    # bloque, un solo mercado los tiene todos. Remuestreando mercados el segundo
+    # caso tiene que dar un intervalo mas ancho: es la dependencia que Wilson no
+    # ve.
+    repartidos = pruebas_con_rechazos([1, 1, 1, 1, 1, 1, 0, 0, 0, 0])
+    en_bloque = pruebas_con_rechazos([6, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    _, b1, a1 = cn.tasa_por_prueba_ic(repartidos, 0.05, 4000, semilla=3)
+    _, b2, a2 = cn.tasa_por_prueba_ic(en_bloque, 0.05, 4000, semilla=3)
+    assert (a2 - b2) > (a1 - b1)
+
+
+def test_los_p_valores_que_faltan_no_cuentan_como_pruebas():
+    tabla = pruebas_con_rechazos([1, 0])
+    tabla.loc[len(tabla)] = {"mercado": 1, "p_bruto": np.nan}
+    tasa, _, _ = cn.tasa_por_prueba_ic(tabla, 0.05, 500, semilla=1)
+    assert tasa == pytest.approx(1 / 12)
+
+
+# --- la regla de ALFA_PRINCIPAL ---------------------------------------------
+
+def test_si_el_intervalo_contiene_alfa_se_queda_alfa():
+    assert cn.decidir_alfa_principal((0.077, 0.043, 0.117), (0.04, 0.02, 0.06),
+                                     0.05, 0.025) == 0.05
+
+
+def test_exceso_demostrado_con_alfa_y_no_con_el_estricto_baja_al_estricto():
+    assert cn.decidir_alfa_principal((0.08, 0.06, 0.10), (0.03, 0.02, 0.05),
+                                     0.05, 0.025) == 0.025
+
+
+def test_exceso_demostrado_con_los_dos_no_esta_previsto_y_no_se_decide_solo():
+    with pytest.raises(ValueError, match="no cubre"):
+        cn.decidir_alfa_principal((0.08, 0.06, 0.10), (0.05, 0.03, 0.07), 0.05, 0.025)
+
+
+def test_un_intervalo_entero_por_debajo_tampoco_esta_previsto():
+    with pytest.raises(ValueError, match="no cubre"):
+        cn.decidir_alfa_principal((0.02, 0.01, 0.04), (0.01, 0.0, 0.02), 0.05, 0.025)
+
+
 # --- tabla de markdown ------------------------------------------------------
 
 def test_la_tabla_de_markdown_tiene_encabezado_y_separador():

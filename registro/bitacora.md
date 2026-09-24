@@ -7,6 +7,12 @@ retomar el trabajo en una sesion nueva sin mas contexto.
 de control. Como el hash solo existe despues de commitear, cada entrada se
 completa con un segundo commit pequeno (`bitacora: hash del punto X`).
 
+**Regla de git** (actualizada en el punto E): existe el remoto `origin` en
+GitHub. Se sube con `git push origin main` al cerrar cada parte aprobada por el
+grupo, despues del commit con el hash. Nunca se suben datos, resultados ni PDFs
+(`datos/`, `resultados/` y los PDF de `docs/papers/` estan ignorados por git).
+Nunca se usa `--force`.
+
 **Estado general**: Fase 1 (motor, estadistica y controles con datos
 simulados). NO se descargan ni se miran datos reales en esta etapa.
 
@@ -995,6 +1001,20 @@ marcados `# POR DECIDIR`. **El punto E no esta empezado.**
 
 ### 1. El piso: los eventos traen un sesgo propio, de 0,005 a 0,008
 
+> **CORREGIDO en el punto E.** Con 200 mercados de 3 anos (los 50 del punto D
+> mas 150 nuevos) el piso NO aparece. Las ocho celdas quedan en cero dentro de
+> su error: sostenida -0,0003 / -0,0019 / -0,0013 / +0,0034 y reingreso
+> -0,0011 / -0,0006 / -0,0004 / +0,0001 (30, 60, 120 y fin de franja), con
+> errores de Monte Carlo de 0,0015 a 0,0024. Prueba conjunta de Hotelling de
+> las 8 celdas contra cero: p = 0,45. Promedio en la direccion de H1/H2:
+> +0,0003 +- 0,0011; en los 50 mercados del punto D daba +0,0049 +- 0,0019 y en
+> los 150 nuevos da -0,0013 +- 0,0013. El "ocho de ocho" fue de esos 50
+> mercados, y las celdas de un mismo tipo estan correlacionadas entre 0,4 y
+> 0,7, asi que nunca fueron ocho pruebas independientes. Intervalos al 95% por
+> celda: hasta unas +-0,005 (hasta +0,008 en sostenida a fin de franja). Lo que
+> sigue en este punto es lo que se creia al cerrar el punto D; el detalle esta
+> en "Punto E (primera parte)".
+
 En 50 mercados simulados **sin ningun patron** — camino aleatorio, donde por
 construccion no hay nada que continuar ni nada que devolverse — el efecto medio
 celda por celda es:
@@ -1024,6 +1044,14 @@ calibracion despues del segundo fracaso.
 
 ### 2. El horizonte de 120 minutos es descriptivo, y la familia corre al 6-8%
 
+> **CORREGIDO en el punto E.** Con 200 mercados el piso no aparece (nota del
+> punto 1), asi que el exceso de la familia principal no se puede atribuir a un
+> sesgo demostrado de los eventos. La frase del 6-8% queda reemplazada por:
+> **"tasa por prueba 7,7% (IC95 por mercados 4,3%-11,7%) con alfa nominal 5%; no
+> se demuestra exceso, pero tampoco se descarta uno de hasta ~12%"**. El
+> intervalo remuestrea mercados, porque las pruebas de un mismo mercado no son
+> independientes. El horizonte de 120 minutos sigue descriptivo.
+
 `HORIZONTES_DESCRIPTIVOS = [120]`. El horizonte salio de `FAMILIA_PRINCIPAL`,
 que quedo con 6 pruebas, porque en el control negativo esa celda rechaza entre
 el 14% y el 16% bajo la nula. Se sigue calculando, se sigue reportando en todas
@@ -1034,8 +1062,10 @@ calibradas. Lo unico que ya no hace es confirmar.
 120 la tasa bruta baja a 0,0767 y la tasa por familia se queda en 0,10, igual
 que con el. El exceso esta repartido, no concentrado en una celda. Por lo
 tanto **la limitacion que se declara en el pre-registro no es "una celda mala"
-sino "la prueba principal corre entre 6% y 8% en vez del 5%"**. Quien escriba
-el punto F no debe suavizar esa frase.
+sino: "tasa por prueba 7,7% (IC95 por mercados 4,3%-11,7%) con alfa nominal
+5%; no se demuestra exceso, pero tampoco se descarta uno de hasta ~12%"**
+(frase corregida en el punto E). Quien escriba el punto F no debe suavizar esa
+frase.
 
 ### 3. Se mantienen dos cambios que no mejoraron nada medible
 
@@ -1118,4 +1148,367 @@ los CSV permiten rehacer cualquier tabla de arriba sin volver a correr nada.
 
 **Lo que no cambia**: no se descargan ni se miran datos reales; no se toca nada
 dentro de `Cuartinhos_Goty` ni se importa desde ahi; `docs/papers/` es del
-grupo y solo se lee si se pide; git es local y no se sube nada.
+grupo y solo se lee si se pide; ~~git es local y no se sube nada~~
+(ACTUALIZADO en el punto E: ver la regla de git al inicio de la bitacora).
+
+---
+
+## Punto E (primera parte) — Auditoria, piso, unidades y regla de alfa
+
+- **Fecha**: 2026-09-23
+- **Commit**: pendiente (se completa en el commit siguiente)
+- **Tests**: `pytest` -> 197 pasan, 0 fallan, 0 avisos.
+- **Estado**: hechos la regla del alfa, la auditoria causal, el piso, las
+  unidades y el piloto del diseno de inyeccion aprobado originalmente. El grupo
+  decidio como medir la curva (ver "Decisiones del grupo al cerrar esta
+  parte"). **La curva de potencia NO se corrio todavia**: queda para la segunda
+  parte.
+
+### La lista de pendientes que vale
+
+La seccion 4 del TRASPASO la reconstruyo la sesion anterior porque la lista
+original no llego. **La reemplaza la lista del mensaje del grupo que abrio este
+punto**: (1) agregar 0,01 y 0,03 a los tamanos; (2) definir por escrito que se
+inyecta y que es potencia; (3) medir el piso con precision, sin la nula; (4)
+traducir las unidades a pips; (5) Holm contra Romano-Wolf y el alfa, con regla
+escrita antes de la curva; (6) auditoria de causalidad con una fuga de prueba
+que tiene que detectar; (7) piloto de tiempo y memoria antes de la corrida
+larga. Queda constancia aqui, como pidio el grupo.
+
+### Decisiones fijadas ANTES de ver la curva, con su razon
+
+1. **`CORRECCION_PRINCIPAL = "holm"`, fijada sin mirar la curva.** Tal como
+   estan implementadas, Holm y Romano-Wolf no son dos correcciones del mismo
+   test sino dos tests distintos: Holm corrige los p-valores de la nula
+   emparejada, a una cola; Romano-Wolf prueba el promedio contra cero con el t
+   de la regresion, a dos colas y sin la nula (su bootstrap de dias necesita un
+   estadistico comun y no puede usar los p de la nula). Comparar su potencia
+   responderia "que test usar", no "que correccion usar", y el test que va al
+   pre-registro ya estaba decidido: la nula emparejada. Holm vale con cualquier
+   dependencia entre pruebas, asi que la correlacion entre horizontes no lo
+   invalida. Romano-Wolf se sigue reportando como prueba **secundaria**, y en
+   toda tabla se rotula como lo que es (`inferencia.ETIQUETA_ROMANO_WOLF`). La
+   regla 8(b) del plan (elegir la correccion por potencia) queda eliminada; en
+   la curva las cuatro combinaciones se reportan solo como descripcion. Sale un
+   `# POR DECIDIR` de config.
+2. **`ALFA_PRINCIPAL` sale de una regla escrita antes de la curva**
+   (`python -m experimentos.control_negativo --alfa-principal`):
+   - se calcula la tasa POR PRUEBA de la familia principal (6 pruebas, sin el
+     120) con los CSV del punto D, con su intervalo al 95% remuestreando
+     MERCADOS, para alfa 0,05 y 0,025;
+   - si con 0,05 el intervalo queda entero por encima de 0,05 (exceso
+     demostrado) y con 0,025 no se demuestra exceso, `ALFA_PRINCIPAL = 0,025`;
+     si con 0,05 el intervalo contiene 0,05, se queda en 0,05; cualquier otro
+     caso no esta previsto y se consulta.
+
+   | alfa | tasa por prueba | IC95 por mercados | exceso demostrado | Wilson (referencia) |
+   |---|---:|---|---|---|
+   | 0,05 | 0,0767 | [0,0433; 0,1167] | no | [0,0516; 0,1124] |
+   | 0,025 | 0,0400 | [0,0200; 0,0600] | no | [0,0230; 0,0686] |
+
+   **Resultado: `ALFA_PRINCIPAL = 0,05`.** Solo aplica a la familia principal;
+   moderadores y H4 siguen con `ALFA = 0,05`, porque estan calibradas. Wilson,
+   que trata como independientes pruebas que no lo son, habria mostrado un
+   exceso (borde inferior 0,0516); por eso la regla remuestrea mercados. La
+   regla anterior del plan (8(a)) se descarto porque premiaba la imprecision:
+   0,05 pasaba por tener un intervalo ancho y 0,025 fallaba aunque su tasa
+   medida era menor. La curva no reabre esta decision.
+3. **Tamanos**: `TAMANOS_EFECTO = [0, 0,01, 0,02, 0,03, 0,05, 0,10, 0,20]`. No
+   se agregan tamanos mayores por los costos: la curva mide deteccion del
+   efecto BRUTO. Para leerla contra un costo c, la potencia de un test neto en
+   delta se aproxima por la potencia bruta en delta - c (el error estandar casi
+   no depende de delta); es una aproximacion y se declara como tal.
+4. **Que se inyecta y que es potencia** (aprobado por el grupo): solo en
+   sostenida (+delta, continuacion) y reingreso (-delta, reversion), en la
+   direccion de la ruptura; al log-precio en t + tau se suma
+   direccion * signo * delta * sigma_ref * raiz(tau) hasta el fin de la franja
+   y despues queda fijo, asi que el retorno normalizado sube delta en todo
+   horizonte dentro de la franja (y delta * raiz(T/h) si el horizonte cruza el
+   fin, POR CONSTRUCCION). Se desplazan todas las columnas de precio de cada
+   barra y hay tests de que las barras siguen coherentes. Potencia por celda =
+   proporcion de mercados que rechazan con el signo correcto; por familia =
+   proporcion con al menos un rechazo correcto. Eje de la curva: delta nominal,
+   con el realizado al lado. Semillas comunes para todos los delta.
+5. **No se reabren**: el emparejamiento por volatilidad reciente,
+   `PRINCIPAL_ESTUDENTIZADO = True` (la curva se mide con el metodo que ira al
+   pre-registro) y **`MIN_DIAS_TRATADOS = 15`, que queda confirmado** (el minimo
+   observado en el punto D fue 18).
+
+### Auditoria causal: pasa, y atrapa una fuga de un minuto
+
+`motor/auditoria.py` y `experimentos/auditoria_causal.py`. En cada corte se
+comparan los eventos con t_evento <= corte de la muestra completa contra la
+muestra truncada y contra la muestra con el futuro reemplazado (por el de otro
+mercado simulado, empalmado en el corte). Se compara TODO lo que el motor
+declara en t (tipo, direccion, instantes, extremo, precio del evento,
+sigma_ref, moderadores, volatilidad reciente) con **igualdad exacta, sin
+tolerancia**.
+
+Los 40 cortes (config): **20 en el instante exacto de un evento sorteado**
+(7 rupturas, 7 sostenidas, 6 reingresos), 10 en la mitad de una franja con
+eventos y 10 al azar. La razon, que puso el grupo: `precio_en` solo se usa para
+fechar la sostenida, asi que una fuga de t + 1 minuto solo altera algo si el
+corte cae justo en el instante de una sostenida; con cortes al azar eso pasa en
+~3% de los casos.
+
+- **Motor real, 1 ano simulado: PASA 40 de 40 cortes** (20 segundos).
+- **Motor con fuga** (solo en `tests/test_auditoria.py`: `precio_en` lee la
+  barra que cierra en t + 1, via monkeypatch), con el MISMO generador de cortes
+  y semilla fija: **NO PASA**. En la corrida de prueba la detectan los 7 cortes
+  anclados en sostenidas, en las dos variantes (truncada: la sostenida
+  desaparece; reemplazada: cambia su precio), y **ninguno de los 20 cortes al
+  azar o de mitad de franja la ve**. Sin los cortes anclados, la auditoria no
+  habria servido.
+
+Declarado: no se auditan los grupos de emparejamiento de la nula (deciles,
+tercios de volatilidad reciente, tercio de la franja). Se calculan con la
+muestra completa por diseno; el tercio usa el fin real de la franja, que
+depende de hasta donde llegan los datos. Sus insumos que existen en t si se
+auditan. El calendario de anuncios se entrega completo porque tiene fecha
+publicada de antemano.
+
+### El piso: con 200 mercados NO hay sesgo (corrige el TRASPASO)
+
+`python -m experimentos.control_positivo --piso`: 200 mercados de 3 anos sin
+ningun patron, deteccion y retornos sin la nula (1,1 minutos). Los primeros 50
+tienen las mismas semillas que el punto D.
+
+| tipo | horizonte | piso (200 mercados) | error MC | los 50 del punto D |
+|---|---|---:|---:|---:|
+| sostenida | 30 | -0,0003 | 0,0024 | +0,0045 |
+| sostenida | 60 | -0,0019 | 0,0024 | +0,0054 |
+| sostenida | 120 | -0,0013 | 0,0023 | +0,0071 |
+| sostenida | fin_franja | +0,0034 | 0,0024 | +0,0088 |
+| reingreso | 30 | -0,0011 | 0,0017 | -0,0001 |
+| reingreso | 60 | -0,0006 | 0,0015 | -0,0029 |
+| reingreso | 120 | -0,0004 | 0,0018 | -0,0067 |
+| reingreso | fin_franja | +0,0001 | 0,0017 | -0,0034 |
+
+- Sobre los 50 mercados del punto D, el calculo sin la nula **reproduce**
+  aquella tabla (+0,0049, +0,0057, +0,0074, +0,0084 / -0,0002, -0,0027,
+  -0,0063, -0,0029); la diferencia es que aqui entran tambien los pocos eventos
+  sin pareja en la nula.
+- Con 200 mercados las ocho celdas quedan en cero dentro de su error, y los
+  signos dejan de coincidir con H1 y H2. Prueba conjunta de Hotelling de las
+  8 celdas contra cero: **p = 0,45**. Promedio de las 8 celdas en la direccion
+  de H1/H2: **+0,0003 +- 0,0011** (error estandar); en los 50 del punto D daba
+  +0,0049 +- 0,0019 y en los 150 nuevos da -0,0013 +- 0,0013.
+- Por que el "ocho de ocho" del punto D no era evidencia: las celdas de un
+  mismo tipo estan correlacionadas entre 0,4 y 0,7 (son los mismos eventos a
+  distintos horizontes), asi que no eran ocho monedas independientes sino
+  poco mas de dos.
+
+**Consecuencia para el pre-registro**: la frase "un efecto por debajo de 0,008
+no se distingue del artefacto" del TRASPASO ya no tiene respaldo como
+artefacto demostrado. Lo que se puede decir con 200 mercados: no se detecta
+ningun sesgo propio de los eventos (Hotelling p = 0,45); los intervalos al 95%
+por celda llegan hasta unas +-0,005 unidades, y hasta +0,008 en sostenida a fin
+de franja (la celda con el punto mas alto, +0,0034); el promedio en la
+direccion de H1/H2 queda en [-0,002; +0,002]. Queda tambien sin respaldo la
+explicacion "el sesgo de los eventos es lo que inclina los p-valores": la tasa
+de rechazo de la familia principal cae dentro de lo que el azar permite
+(intervalo por mercados [0,043; 0,117] con alfa 0,05). El grupo acepto la
+correccion y reemplazo la frase del 6-8% por: **"tasa por prueba 7,7% (IC95
+por mercados 4,3%-11,7%) con alfa nominal 5%; no se demuestra exceso, pero
+tampoco se descarta uno de hasta ~12%"**. El TRASPASO no se borro: sus puntos 1
+y 2 llevan al inicio una nota visible "CORREGIDO en el punto E" con estos
+numeros.
+
+### Unidades: cuantos pips vale una unidad de retorno normalizado
+
+**Es un orden de magnitud**: el factor es sigma_ref * raiz(h) * precio / pip, y
+sigma_ref sale aqui de `VOL_ANUAL_SIMULACION`, un parametro de simulacion. La
+traduccion definitiva se hara evento por evento con el sigma_ref de los datos
+reales. Medianas sobre sostenidas y reingresos (20 mercados por volatilidad;
+por franja y cuartiles en `resultados/control_positivo_piso.md`):
+
+| vol anual | 30 min | 60 min | 120 min | fin de franja |
+|---|---:|---:|---:|---:|
+| 0,05 | 4,1 pips | 5,8 | 8,2 | 11,6 |
+| 0,07 | 5,7 pips | 8,0 | 11,4 | 16,3 |
+| 0,10 | 8,1 pips | 11,4 | 16,2 | 23,5 |
+
+Con 7%, un costo de ida y vuelta de 0,5 / 1 / 2 pips vale 0,09 / 0,18 / 0,35
+unidades a 30 minutos y 0,06 / 0,12 / 0,25 a 60 minutos. **Siete
+combinaciones de costo, horizonte y volatilidad quedan por encima del mayor
+tamano de la curva (0,20)**, entre ellas 2 pips a 30 y 60 minutos con 7%. Por
+decision del grupo no se agregan tamanos: la curva se lee contra el costo con
+la aproximacion de la decision 3.
+
+### Inyeccion: lo que aparecio al programarla (decidido, ver mas abajo)
+
+Dos problemas, medidos antes de la curva, que hacen que el delta nominal no
+sea el efecto que llega a las celdas:
+
+1. **La retroalimentacion en dos pasadas desalinea los eventos.** El plan
+   aprobado detecta los eventos en el mercado limpio, inyecta y vuelve a correr
+   todo. Pero la deriva mueve los extremos de cada franja, y en la franja
+   siguiente el motor detecta OTROS eventos: con delta = 0,2, en un ano, solo
+   el 51% de los reingresos y el 69% de las sostenidas del mercado inyectado
+   coinciden con un evento del limpio. Los nuevos no traen efecto, y parte de
+   la deriva queda pegada a eventos que ya no existen. En el plan se dijo que
+   esto era "lo que pasaria con un efecto real"; no lo es: con un efecto real,
+   todo evento detectado lo trae.
+2. **Sostenida y reingreso se pisan.** El 71-73% de las sostenidas tiene un
+   reingreso POSTERIOR en la misma franja, y la reversion de ese reingreso
+   anula parte de la continuacion (y al reves). Aun con la inyeccion hecha
+   autoconsistente, el delta realizado por evento queda en 0,71-0,77 delta a 30
+   minutos para las sostenidas, 0,37-0,46 delta a fin de franja; y 0,76-0,87
+   delta para los reingresos.
+
+La inyeccion autoconsistente (iterar inyectar -> detectar hasta que los eventos
+que se inyectan son los que se detectan) converge: por causalidad, el primer
+desacuerdo avanza en cada vuelta. Se midio en un prototipo desechable: 4
+iteraciones con delta = 0,01, 7 con 0,05 y 14-15 con 0,20; con 13 anos, 30 y 66
+segundos por delta. Las opciones que se presentaron y la decision del grupo
+estan mas abajo.
+
+### Piloto (del diseno aprobado, dos pasadas)
+
+`python -m experimentos.control_positivo --piloto`: 3 mercados por duracion,
+cada uno con los 7 tamanos, de a uno y cada uno en un proceso nuevo (asi la
+memoria medida es la de un proceso entero). Nula y Romano-Wolf con 500
+repeticiones.
+
+| duracion | segundos por mercado (7 delta) | pico de memoria | procesos que caben (70% de ~5 GB libres) | 30 mercados |
+|---|---:|---:|---:|---:|
+| 4 anos | 42 | 0,64-0,87 GB | 4 | 5 min |
+| 13 anos | 119-129 | 2,08-2,29 GB | 1 | 61 min |
+
+**Total estimado: 67 minutos**, por encima de la hora. El cuello es la memoria
+libre del equipo en ese momento (unos 5 GB de 16,8): con 13 anos cabe un solo
+proceso.
+
+Primera mirada (3 mercados, solo para revisar la maquina): la mediana del p de
+Holm baja con delta como debe (4 anos: 1, 1, 0,79, 0,45, 0,23, 0,015, 0,012;
+13 anos: 0,96 ... 0,012). Pero confirma la dilucion del diseno aprobado: con
+delta = 0,10 el delta realizado por celda va de 0,07 a 0,09 en reingresos y de
+0,02 a 0,06 en sostenidas; con delta = 0,05 solo el 75% de los reingresos y el
+84% de las sostenidas del mercado inyectado recibieron el efecto. El cambio de
+sigma_ref es despreciable (menos de 0,5%) y la cantidad de eventos cambia menos
+de 2,5%.
+
+### Opciones que se presentaron para la inyeccion
+
+- **A. Dejar lo aprobado (dos pasadas).** El eje nominal queda lejos del efecto
+  que llega a las celdas, y el efecto minimo detectable sobre ese eje no se
+  puede comparar con la referencia de 0,07-0,11. 67 minutos: habria que bajar
+  13 anos a 25 mercados (~56 min; error de Monte Carlo de una potencia de 0,5:
+  0,100 en vez de 0,091).
+- **B. Inyeccion de precio autoconsistente.** Todo evento detectado trae su
+  efecto; queda la superposicion (sostenidas 0,37-0,77 delta, reingresos
+  0,76-0,87 delta). ~98 s por mercado de 4 anos y ~300 s por mercado de 13:
+  unas 2,7 horas con un proceso. Solo cabe con recortes grandes o con mas
+  memoria libre.
+- **C. Como B, una hipotesis por corrida** (solo sostenidas, solo reingresos):
+  delta realizado ~ delta salvo los horizontes que cruzan el fin de la franja;
+  el doble de B.
+- **D. Inyectar en el resultado**: el mercado queda limpio y a cada evento se
+  le suma exactamente signo * delta * raiz(min(h, T) / h) en el retorno
+  normalizado de cada celda (lo mismo que daria la deriva de precio de un
+  evento aislado). Delta exacto por celda por construccion, sin
+  retroalimentacion ni superposicion; responde directo "si el efecto en la
+  celda es delta, con que probabilidad se detecta", comparable con la
+  referencia. ~23 s por mercado de 4 anos y ~66 s por mercado de 13: unos 36
+  minutos en total, sin recortes. Pierde lo que el mecanismo de precio le hace
+  a las celdas.
+
+**Recomendacion**: D para la curva, y B como control descriptivo con
+delta = 0,05 y 0,10, 4 anos, 30 mercados (~5 minutos mas): mide cuanto de un
+efecto de precio llega a cada celda cuando las dos hipotesis actuan a la vez.
+Total ~41 minutos, dentro de la hora.
+
+**Aparte, para la discusion del pre-registro** (no es del control positivo):
+el 71-73% de las sostenidas tiene un reingreso posterior en la misma franja, o
+sea que H1 y H2 miden trayectorias de precio que se pisan. Si los dos efectos
+existieran, se anularian en parte en las celdas medidas, sobre todo en
+sostenida a 120 minutos y a fin de franja. Es una pregunta sobre como se define
+H1, no sobre la curva; no se propone ningun cambio.
+
+### Decisiones del grupo al cerrar esta parte
+
+1. **Inyeccion: D para la curva y B como control descriptivo.** La curva se
+   mide sumando delta al retorno normalizado de cada evento de la celda, sobre
+   el mercado limpio. Razon del grupo: D mide la potencia en la unidad en que
+   estan escritas las hipotesis, que es el procedimiento habitual en estudios
+   de eventos (MacKinlay, 1997, seccion de potencia). B (inyeccion de precio
+   autoconsistente, con delta = 0,05 y 0,10 y 4 anos) documenta cuanto de un
+   efecto en precios llega a las celdas; se reporta y **no decide nada**.
+2. **Queda anotado para el pre-registro (punto F)**: el 71-73% de las
+   sostenidas reingresa despues en la misma franja, asi que H1 y H2 miden
+   trayectorias que se pisan. Hoy no se cambia nada.
+3. **Se acepta la correccion del piso.** El TRASPASO no se borra: sus puntos 1
+   y 2 llevan al inicio una nota "CORREGIDO en el punto E" con los numeros de
+   los 200 mercados, y la frase del 6-8% se reemplaza por: "tasa por prueba
+   7,7% (IC95 por mercados 4,3%-11,7%) con alfa nominal 5%; no se demuestra
+   exceso, pero tampoco se descarta uno de hasta ~12%".
+4. **Regla de git actualizada** (al inicio de la bitacora): existe el remoto
+   `origin` en GitHub; se sube al cerrar cada parte aprobada; nunca se suben
+   datos, resultados ni PDFs; nunca se usa `--force`.
+5. Esta parte se cierra sin correr nada mas: la curva va en la segunda parte.
+
+### Romano-Wolf con 6 pruebas, exacto (solo descripcion)
+
+El plan daba una cota (los p de Romano-Wolf del punto D eran de la familia de 8
+pruebas). Recalculado con un script desechable sobre los mismos 50 mercados y
+los mismos remuestreos (33 segundos): **3 de 50 mercados (0,06) con alfa 0,05 y
+2 de 50 (0,04) con 0,025**, todos con el signo de H1/H2; la cota era 2 y 1.
+Como se esperaba, con 6 pruebas ningun p subio. Ya no decide nada: Holm quedo
+fijado.
+
+### Parametros nuevos en config
+
+`ALFA_ESTRICTO`, `ALFA_PRINCIPAL`, `REMUESTREOS_IC_MERCADOS`, `ALFAS_POTENCIA`,
+`POTENCIA_OBJETIVO`, `MERCADOS_PISO`, `ANIOS_PISO`, `MERCADOS_UNIDADES`,
+`VOLS_TRADUCCION` (# PARAMETRO DE SIMULACION), `COSTOS_IDA_VUELTA_PIPS`
+(# POR DECIDIR), `CORTES_AUDITORIA_EVENTO`, `CORTES_AUDITORIA_MITAD_FRANJA`,
+`CORTES_AUDITORIA_AZAR`, `ANIOS_AUDITORIA`. `CORRECCION_PRINCIPAL` deja de
+estar POR DECIDIR y `COSTOS_IDA_VUELTA_PIPS` entra: siguen **21** parametros
+`# POR DECIDIR`.
+
+### TRASPASO corto (para abrir la segunda parte del punto E)
+
+**Estado**: primera parte cerrada con commit y subida a `origin`. 197 tests, 0
+fallos, 0 avisos. 21 parametros `# POR DECIDIR`. La curva de potencia **no se
+corrio**.
+
+**Ojo con el codigo**: `experimentos/control_positivo.py` todavia programa la
+curva con la inyeccion en precios EN DOS PASADAS (el diseno A, descartado). Hay
+que reemplazarla antes de correr nada.
+
+**Siguiente paso, en este orden:**
+
+1. Programar el diseno D: sobre el mercado limpio, a cada sostenida y reingreso
+   se le suma signo * delta * raiz(min(h, T) / h) al retorno normalizado de
+   cada horizonte (T = `h_fin_franja`; signo +1 sostenida, -1 reingreso, en la
+   direccion de la ruptura). La nula y los candidatos no cambian; por cada
+   delta se corren la nula, Holm y Romano-Wolf sobre los mismos candidatos.
+   Reportar el delta realizado igual (es delta salvo los horizontes que cruzan
+   el fin de la franja).
+2. Programar B como control descriptivo: inyeccion de precio autoconsistente
+   (iterar inyectar -> detectar hasta que los eventos que se inyectan son los
+   que se detectan), delta = 0,05 y 0,10, 4 anos, 30 mercados. Reporta delta
+   realizado por celda y potencia; no decide nada.
+3. **Piloto corto del diseno D** (tiempo y memoria), y **detenerse a esperar el
+   OK**. Estimado de esta parte: D ~36 min y B ~5 min con la memoria de hoy.
+4. Con el OK, la corrida larga (D + B), el reporte y el grafico. Cerrar el
+   punto E con commit, commit del hash y `git push origin main`.
+
+**Anotado para el punto F**: la redaccion del piso y de la limitacion de la
+familia principal (frase corregida en el TRASPASO anterior) y la superposicion
+de H1 y H2.
+
+**Reglas que siguen**: sin datos reales; causalidad estricta; todo parametro
+nuevo a config (POR DECIDIR si corresponde); si un control falla no se ajusta
+nada para que pase; tests con 0 avisos; si una corrida pasa de una hora se
+recorta tamano de muestra y se dice con su error de Monte Carlo; regla de git
+al inicio de la bitacora.
+
+**Como retomar**:
+
+```
+python -m experimentos.control_negativo --alfa-principal   la regla del alfa (lee CSV del D)
+python -m experimentos.auditoria_causal                    40 cortes, ~20 s
+python -m experimentos.control_positivo --piso             piso y unidades, ~1 min
+python -m experimentos.control_positivo --piloto           piloto (hoy: diseno A, a reemplazar por D)
+```

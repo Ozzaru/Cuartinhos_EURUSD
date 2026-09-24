@@ -52,6 +52,31 @@ def test_familias_de_pruebas_bien_formadas():
     assert "ruptura" in cfg.TIPOS_DESCRIPTIVOS
 
 
+def test_holm_es_la_correccion_principal_y_cada_familia_tiene_su_alfa():
+    # Fijado en el punto E sin mirar la curva: Holm sobre la nula emparejada.
+    assert cfg.CORRECCION_PRINCIPAL == "holm"
+    # ALFA_PRINCIPAL solo puede ser uno de los dos valores que admite la regla.
+    assert cfg.ALFA_PRINCIPAL in (cfg.ALFA, cfg.ALFA_ESTRICTO)
+    assert cfg.ALFA_ESTRICTO < cfg.ALFA
+    from motor import inferencia
+    assert inferencia.alfa_de_familia("principal", cfg) == cfg.ALFA_PRINCIPAL
+    assert inferencia.alfa_de_familia("moderadores", cfg) == cfg.ALFA
+
+
+def test_la_auditoria_reparte_sus_cortes_como_se_acordo():
+    assert cfg.CORTES_AUDITORIA_EVENTO == 20
+    assert cfg.CORTES_AUDITORIA_MITAD_FRANJA == 10
+    assert cfg.CORTES_AUDITORIA_AZAR == 10
+
+
+def test_los_tamanos_de_efecto_cubren_la_zona_del_piso():
+    # El piso medido en el punto D va de 0,005 a 0,008: la curva necesita
+    # puntos entre 0 y 0,02, no solo en los extremos.
+    assert cfg.TAMANOS_EFECTO[0] == 0
+    assert 0.01 in cfg.TAMANOS_EFECTO and 0.03 in cfg.TAMANOS_EFECTO
+    assert cfg.TAMANOS_EFECTO == sorted(cfg.TAMANOS_EFECTO)
+
+
 def test_cortes_de_muestra_no_se_solapan():
     assert cfg.DESARROLLO_HASTA < cfg.VALIDACION[0] < cfg.VALIDACION[1] < cfg.SELLADO[0]
     assert cfg.SELLADO[0] < cfg.SELLADO[1]

@@ -110,9 +110,18 @@ PRINCIPAL_ESTUDENTIZADO = True               # True = el estadistico de H1 y H2 
 # =============================================================================
 #  8. INFERENCIA Y PRUEBAS MULTIPLES
 # =============================================================================
-ALFA = 0.05                                  # nivel de significancia
-CORRECCION_PRINCIPAL = "holm"                # provisional; se decide en el punto E comparando POTENCIA, no tamano  # POR DECIDIR
-REPORTAR_AMBAS_CORRECCIONES = True           # True = toda tabla trae Holm y Romano-Wolf, para no elegir a ciegas
+ALFA = 0.05                                  # nivel de significancia de moderadores (H3) y H4, que estan calibradas
+ALFA_ESTRICTO = 0.025                        # la alternativa que la regla del punto E puede elegir para la familia principal
+ALFA_PRINCIPAL = 0.05                        # nivel de la familia principal (H1 y H2), fijado por la regla del punto E (ver bitacora)
+REMUESTREOS_IC_MERCADOS = 10000              # remuestreos de MERCADOS para el intervalo de una tasa por prueba
+
+# Holm sobre los p-valores de la nula emparejada, fijado en el punto E SIN mirar
+# la curva de potencia. Romano-Wolf, tal como esta implementado, no es otra
+# correccion del mismo test sino otro test (t de la regresion contra cero, a dos
+# colas, sin la nula), asi que comparar potencias no decidia nada. Se sigue
+# reportando como prueba SECUNDARIA, rotulada como lo que es.
+CORRECCION_PRINCIPAL = "holm"
+REPORTAR_AMBAS_CORRECCIONES = True           # True = toda tabla trae Holm y, como prueba secundaria, Romano-Wolf
 TIPO_ERRORES = "cluster"                     # "cluster" (agrupado por fecha de Londres) o "HAC" (Newey-West)
 RW_REPETICIONES = 1000                       # remuestreos de dias del bootstrap de Romano-Wolf
 
@@ -166,10 +175,23 @@ SEMILLA = 20260916                           # semilla maestra; cada corrida der
 # =============================================================================
 ANIOS = 3                                    # duracion de cada mercado simulado del control negativo
 MERCADOS_CONTROL_NEGATIVO = 50               # mercados independientes del control negativo
-TAMANOS_EFECTO = [0, 0.02, 0.05, 0.10, 0.20] # deltas inyectados en el control positivo (en unidades de retorno normalizado)
+TAMANOS_EFECTO = [0, 0.01, 0.02, 0.03, 0.05, 0.10, 0.20]  # deltas inyectados en el control positivo (en unidades de retorno normalizado)
 ANIOS_POTENCIA = [4, 13]                     # duraciones evaluadas: 4 ~ validacion, 13 ~ desarrollo (6 ~ sellado si el tiempo lo permite)
 REPETICIONES_POTENCIA = 30                   # mercados por combinacion (delta, duracion)
+ALFAS_POTENCIA = [ALFA, ALFA_ESTRICTO]       # niveles con que se DESCRIBE la curva (la decision usa ALFA_PRINCIPAL)
+POTENCIA_OBJETIVO = 0.80                     # potencia con la que se define el efecto minimo detectable
 MERCADOS_PILOTO = 3                          # mercados del piloto que estima el tiempo total antes de la corrida larga
+
+# El piso: el sesgo propio de los eventos, medido sin la nula en muchos mercados.
+MERCADOS_PISO = 200                          # mercados sin ningun patron para medir el piso con precision
+ANIOS_PISO = 3                               # duracion de cada uno
+
+# Traduccion de unidades normalizadas a pips. Es un orden de magnitud: la
+# traduccion definitiva se hara evento por evento con el sigma_ref de los datos
+# reales.
+MERCADOS_UNIDADES = 20                       # mercados por volatilidad con los que se mide el factor pips / unidad
+VOLS_TRADUCCION = [0.05, 0.07, 0.10]         # volatilidades anuales con que se repite la traduccion  # PARAMETRO DE SIMULACION
+COSTOS_IDA_VUELTA_PIPS = [0.5, 1.0, 2.0]     # costos de ida y vuelta con que se lee la curva, en pips  # POR DECIDIR
 
 VOL_ANUAL_SIMULACION = 0.07                  # volatilidad anual del mercado simulado  # PARAMETRO DE SIMULACION
 PRECIO_INICIAL = 1.10                        # precio medio inicial  # PARAMETRO DE SIMULACION
@@ -192,3 +214,14 @@ PERFIL_HORARIO_VOL = [
     1.15, 1.60, 1.70, 1.60, 1.35, 1.10,      # 12-17  solape Londres-Nueva York
     0.80, 0.70, 0.65, 0.60, 0.60, 0.55,      # 18-23  tarde y cierre
 ]                                            # PARAMETRO DE SIMULACION
+
+# =============================================================================
+#  11. AUDITORIA CAUSAL (prueba de truncamiento)
+#      Los cortes al azar casi nunca caen en el instante de un evento, que es
+#      justo donde una fuga de un minuto cambia algo. Por eso la mitad de los
+#      cortes se ancla en instantes de eventos reales.
+# =============================================================================
+CORTES_AUDITORIA_EVENTO = 20                 # cortes en el instante EXACTO de un evento sorteado (mezcla los tres tipos)
+CORTES_AUDITORIA_MITAD_FRANJA = 10           # cortes en la mitad de una franja que genero eventos
+CORTES_AUDITORIA_AZAR = 10                   # cortes en un minuto cualquiera, despues del primer evento
+ANIOS_AUDITORIA = 1                          # duracion del mercado simulado sobre el que se corre la auditoria
