@@ -1156,7 +1156,7 @@ grupo y solo se lee si se pide; ~~git es local y no se sube nada~~
 ## Punto E (primera parte) — Auditoria, piso, unidades y regla de alfa
 
 - **Fecha**: 2026-09-23
-- **Commit**: pendiente (se completa en el commit siguiente)
+- **Commit**: `6950074` (`punto E (1a parte): auditoria, piso, unidades y regla de alfa`)
 - **Tests**: `pytest` -> 197 pasan, 0 fallan, 0 avisos.
 - **Estado**: hechos la regla del alfa, la auditoria causal, el piso, las
   unidades y el piloto del diseno de inyeccion aprobado originalmente. El grupo
