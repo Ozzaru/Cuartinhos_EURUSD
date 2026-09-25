@@ -1784,3 +1784,5 @@ Delta realizado / nominal por evento:
 **Para el punto F**: si H1 y H2 fueran ciertas a la vez, la sostenida a fin de
 franja perderia buena parte de su potencia por el contagio del reingreso. Es
 una pregunta sobre como se define H1; no se cambia nada.
+
+**Hash de cierre de esta parte**: `b2337cb` (`punto E (2a parte): curva de potencia (D), control B y ALFA_PRINCIPAL = 0,025`). Sin push hasta que el grupo revise los resultados.
