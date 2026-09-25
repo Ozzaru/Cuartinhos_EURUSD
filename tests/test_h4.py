@@ -146,6 +146,24 @@ def test_el_observado_se_calcula_sobre_los_mismos_eventos_que_la_nula():
             fila["diferencia"] / fila["error"], rel=1e-9)
 
 
+def test_pedir_las_distribuciones_no_cambia_la_tabla_y_da_los_t_de_la_nula():
+    # La potencia de H4 (punto F) reusa los t nulos; pedirlos no puede cambiar
+    # nada de lo que ya se calculaba.
+    cfg, barras, cal, ev, noticias = escenario(MIN_DIAS_TRATADOS=1)
+    sola = nula.correr_h4(barras, cal, ev, cfg, semilla=1, repeticiones=15,
+                          noticias=noticias)
+    tabla, dist = nula.correr_h4(barras, cal, ev, cfg, semilla=1, repeticiones=15,
+                                 noticias=noticias, con_distribuciones=True)
+    pd.testing.assert_frame_equal(sola, tabla)
+    assert set(dist) == {(t, h) for t, h in zip(tabla["tipo"], tabla["horizonte"])}
+    for fila in tabla.itertuples(index=False):
+        nulas = dist[(fila.tipo, fila.horizonte)]
+        assert len(nulas) == fila.repeticiones
+        if len(nulas):
+            esperado = (1 + np.sum(nulas >= fila.t_observado)) / (1 + len(nulas))
+            assert fila.p_estudentizado == pytest.approx(esperado, rel=0, abs=0)
+
+
 def test_la_diferencia_agrupada_es_la_resta_de_promedios():
     y = np.array([1.0, 2.0, 3.0, 10.0, 12.0])
     tratado = np.array([0.0, 0.0, 0.0, 1.0, 1.0])

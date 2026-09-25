@@ -1971,3 +1971,70 @@ python -m experimentos.diagnostico_tamano               diagnostico del tamano d
 correr `--piso`, `--piloto` y la curva, unos 30 minutos.)
 
 **Hash de cierre del punto E**: `e2854b8` (`punto E (cierre): diagnostico del tamano, efecto minimo por celda en pips y traspaso a F`).
+
+---
+
+## Punto F, paso 1 — Tabla de decisiones para el pre-registro
+
+- **Fecha**: 2026-09-25
+- **Documento**: `registro/decisiones_F.md` (la tabla completa, con evidencia y
+  recomendación por parámetro, las decisiones de protocolo y los números de
+  abajo).
+- **Tests**: `pytest` -> 238 pasan, 0 fallan, 0 avisos (con el `.venv`).
+- **Sin datos reales. Sin push**: se sube en el paso 3, con la etiqueta.
+
+### Que se hizo
+
+- `MIN_DIAS_TRATADOS` pierde la marca (confirmado en 15 en el punto E). Quedan
+  20 parametros `# POR DECIDIR`; la tabla recomienda mantener todos los valores
+  actuales, eliminar `HORIZONTE_PRINCIPAL` (decision 3) y agregar
+  `COMISION_USD_POR_MILLON_LADO = 35` (tarifa publicada de Dukascopy, tramo mas
+  bajo, por lado) y `LATENCIA_VELAS = 1`. Nada de eso se aplico todavia: espera
+  la decision del grupo (paso 2).
+- **Simulador**: el BCE como anuncio opcional (`ANUNCIOS_SIMULADOS`; 8 al ano,
+  segundo jueves, 12:45 UTC). El calendario por defecto quedo identico al de D
+  y E (comparado contra `HEAD`, mercado y anuncios iguales).
+- `nula.correr_h4(..., con_distribuciones=True)` devuelve los t nulos; la
+  salida por defecto no cambia (test).
+- **Nuevo** `experimentos/potencia_moderadores.py`: potencia de H3 y H4 con el
+  principio del diseno D aplicado al subgrupo, mas dias tratados y
+  prevalencias. Piloto: 13 min estimados; corrida: 10,6 min, 200 mercados de 4
+  anos con el calendario de la lista cerrada (40 anuncios al ano).
+- **Nuevo** `experimentos/anexo_sensibilidad.py`: el anexo pendiente del punto
+  B (solo deteccion, 18 variantes, 5 mercados de 4 anos).
+
+### Resultados
+
+1. **Efecto minimo detectable por celda, 4 anos, alfa 0,05**:
+   - H3: 0,15-0,32 unidades (reingresos 0,15-0,24; sostenidas 0,22-0,32);
+     entre 2 y 4 veces el de H1/H2.
+   - H4 en reingresos: 0,63-0,82. H4 en sostenidas: no llega.
+   - La aproximacion normal con Bonferroni calza con la simulacion (salvo
+     compresion, donde la simulacion da menos).
+2. **Dias tratados** con la lista cerrada: sostenidas 2,8 por ano (11 en 4
+   anos, 18% de los mercados llega a 15); reingresos 6,9 por ano. H4 en
+   validacion queda, en la practica, en 4 pruebas sobre reingresos.
+3. **H3 esta calibrada** en 4 anos: 5,4% por prueba, 1,5% por familia.
+4. **H4 NO esta calibrada en 4 anos** (control que falla; no se ajusto nada):
+   10,8% por prueba (IC95 7,6%-14,4%) y 12,0% por familia con alfa 0,05. El
+   exceso es simetrico (cola opuesta 11,1%) y baja con mas dias tratados (2,7%
+   con 30 o mas). En el punto D (13 anos, ~66 dias) no se veia: 7,5%. Causa
+   probable, sin verificar: la nula sortea los tratados en toda la ventana de
+   60 minutos y los eventos reales se concentran justo despues del anuncio.
+   Opciones y recomendacion (extender la regla del alfa del punto E, que daria
+   0,025 para H4) en `decisiones_F.md`, seccion e.
+5. **Anexo**: con 1 pip y M = 15 rompe el 79,5% de las franjas y aguanta el
+   40,5% de las rupturas. El "17%" del punto B venia de un paseo aleatorio
+   simple anterior al simulador. La superposicion (73% de las sostenidas
+   reingresa) no desaparece en ninguna variante (50%-83%).
+
+### Datos externos verificados (para el pre-registro)
+
+- BCE: decisiones a las 14:15 CET desde el 21 de julio de 2022 (antes 13:45).
+- HistData: EST fijo (UTC-5, sin horario de verano) y solo bid.
+- Dukascopy: 35 USD por millon por lado en el tramo mas bajo; IBKR: 0,20 pb.
+
+### Siguiente
+
+Esperar las decisiones del grupo sobre la tabla (en especial la seccion e, H4)
+antes del paso 2.

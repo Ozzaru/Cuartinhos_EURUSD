@@ -64,6 +64,11 @@ def calendario_noticias(indice, cfg):
       empleo  primer viernes de cada mes, 13:30 UTC
       ipc     dia 12 de cada mes, 13:30 UTC
       fomc    tercer miercoles de ocho meses al ano, 19:00 UTC
+      bce     segundo jueves de ocho meses al ano, 12:45 UTC
+
+    Solo entran los tipos de ANUNCIOS_SIMULADOS. El BCE no esta en el
+    calendario por defecto (el de los puntos D y E): se agrega para medir con
+    la frecuencia de la lista cerrada del pre-registro.
 
     El dia 12 puede caer sabado o domingo. En ese caso el anuncio se corre al
     siguiente dia con mercado abierto, igual que pasa en la realidad: las
@@ -71,27 +76,38 @@ def calendario_noticias(indice, cfg):
     en el minuto cerrado y se perdia, lo que restaba alrededor de un 15% de la
     muestra tratada de H4 sin ninguna razon.
     """
+    pedidos = set(cfg.ANUNCIOS_SIMULADOS)
+    desconocidos = pedidos - {"empleo", "ipc", "fomc", "bce"}
+    if desconocidos:
+        raise ValueError(f"anuncios simulados desconocidos: {sorted(desconocidos)}")
+
     inicio, fin = indice[0], indice[-1]
     meses = pd.date_range(inicio.normalize().replace(day=1), fin, freq="MS", tz="UTC")
     fechas, tipos = [], []
 
     meses_fomc = {1, 3, 4, 6, 7, 9, 11, 12}
+    meses_bce = {1, 3, 4, 6, 7, 9, 10, 12}
     for mes in meses:
         dias = pd.date_range(mes, mes + pd.Timedelta(days=27), freq="D")
         viernes = [d for d in dias if d.dayofweek == 4]
-        if viernes:
+        if viernes and "empleo" in pedidos:
             fechas.append(viernes[0] + pd.Timedelta(hours=13, minutes=30))
             tipos.append("empleo")
-        fechas.append(mes + pd.Timedelta(days=11, hours=13, minutes=30))
-        tipos.append("ipc")
-        if mes.month in meses_fomc:
+        if "ipc" in pedidos:
+            fechas.append(mes + pd.Timedelta(days=11, hours=13, minutes=30))
+            tipos.append("ipc")
+        if mes.month in meses_fomc and "fomc" in pedidos:
             miercoles = [d for d in dias if d.dayofweek == 2]
             if len(miercoles) >= 3:
                 fechas.append(miercoles[2] + pd.Timedelta(hours=19))
                 tipos.append("fomc")
+        if mes.month in meses_bce and "bce" in pedidos:
+            jueves = [d for d in dias if d.dayofweek == 3]
+            fechas.append(jueves[1] + pd.Timedelta(hours=12, minutes=45))
+            tipos.append("bce")
 
     momentos = [_al_dia_habil(t, indice) for t in pd.DatetimeIndex(fechas)]
-    tabla = pd.DataFrame({"t_utc": pd.DatetimeIndex(momentos), "tipo": tipos})
+    tabla = pd.DataFrame({"t_utc": pd.DatetimeIndex(momentos, tz="UTC"), "tipo": tipos})
     tabla = tabla[(tabla["t_utc"] >= inicio) & (tabla["t_utc"] <= fin)]
     return tabla.sort_values("t_utc").reset_index(drop=True)
 

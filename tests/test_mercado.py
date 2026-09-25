@@ -129,6 +129,30 @@ def test_el_calendario_de_anuncios_tiene_los_horarios_declarados(mercado_corto):
     assert (fomc.dt.hour == 19).all()
 
 
+def test_el_bce_solo_entra_si_se_pide_y_con_su_horario():
+    base = ayuda.cfg_prueba()
+    assert "bce" not in base.ANUNCIOS_SIMULADOS, "el calendario de D y E no cambia"
+    cfg = ayuda.cfg_prueba(ANUNCIOS_SIMULADOS=base.ANUNCIOS_SIMULADOS_LISTA_CERRADA)
+    datos, noticias = mercado.generar(1, semilla=7, cfg=cfg)
+    cuentas = noticias["tipo"].value_counts()
+    assert cuentas["bce"] == 8, "ocho reuniones al ano"
+    bce = noticias[noticias["tipo"] == "bce"]["t_utc"]
+    assert (bce.dt.dayofweek == 3).all(), "el BCE anuncia en jueves"
+    assert ((bce.dt.day >= 8) & (bce.dt.day <= 14)).all(), "segundo jueves"
+    assert ((bce.dt.hour == 12) & (bce.dt.minute == 45)).all()
+    assert noticias["t_utc"].isin(datos.index).all()
+    # Los demas anuncios quedan como estaban.
+    _, sin_bce = mercado.generar(1, semilla=7, cfg=base)
+    pd.testing.assert_frame_equal(
+        noticias[noticias["tipo"] != "bce"].reset_index(drop=True), sin_bce)
+
+
+def test_un_anuncio_simulado_desconocido_revienta():
+    cfg = ayuda.cfg_prueba(ANUNCIOS_SIMULADOS=("empleo", "boe"))
+    with pytest.raises(ValueError):
+        mercado.generar(1, semilla=7, cfg=cfg)
+
+
 def test_todos_los_anuncios_caen_en_minutos_con_mercado_abierto(mercado_corto):
     # Antes se perdian los anuncios de fin de semana, que eran alrededor de un
     # 15% de la muestra tratada de H4.

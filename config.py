@@ -157,7 +157,7 @@ FAMILIA_H4 = [
     for tipo in ("sostenida", "reingreso")
     for h in HORIZONTES
 ]
-MIN_DIAS_TRATADOS = 15                       # dias distintos con evento "con anuncio" para que la prueba de H4 entre a la familia  # POR DECIDIR
+MIN_DIAS_TRATADOS = 15                       # dias distintos con evento "con anuncio" para que la prueba de H4 entre a la familia (confirmado en el punto E)
 H4_ESTUDENTIZADO = True                      # True = el estadistico principal es el t; la version sin estudentizar se reporta como comparacion
 
 # "ruptura" queda como tipo DESCRIPTIVO: se reporta a dos colas, fuera de las
@@ -211,6 +211,26 @@ ESCENARIOS_CONTROL_B = {
 }
 ITERACIONES_MAX_CONTROL_B = 50               # tope de la iteracion; si no converge, se informa (en los ensayos: 4 a 15)
 
+# Potencia de H3 y H4 (punto F). Mismo principio que el diseno D: el mercado
+# queda limpio y el efecto se suma al retorno normalizado, aqui solo al
+# SUBGRUPO que la hipotesis senala (moderador encendido en H3, "con anuncio" en
+# H4). Se mide en la duracion que confirma y con el calendario de la lista
+# cerrada. Las grillas son mas anchas que GRILLA_POTENCIA porque una diferencia
+# entre subgrupos necesita mucho mas efecto que una media de celda.
+ANIOS_POTENCIA_MODERADORES = 4
+MERCADOS_POTENCIA_MODERADORES = 200
+GRILLA_POTENCIA_H3 = [round(0.01 * k, 3) for k in range(61)]    # de 0 a 0,60 cada 0,01
+GRILLA_POTENCIA_H4 = [round(0.02 * k, 3) for k in range(101)]   # de 0 a 2,00 cada 0,02
+
+# Anexo de sensibilidad (pendiente del punto B para el punto F): cuantas
+# franjas rompen, aguantan y reingresan con otros umbrales y otros M. Solo
+# describe los mercados simulados; no decide nada por si solo.
+SENSIBILIDAD_UMBRAL_PIPS = [1.0, 3.0, 5.0]
+SENSIBILIDAD_UMBRAL_VOL = [1.0, 2.0, 3.0]
+SENSIBILIDAD_M = [5, 15, 30]
+MERCADOS_SENSIBILIDAD = 5
+ANIOS_SENSIBILIDAD = 4
+
 # El piso: el sesgo propio de los eventos, medido sin la nula en muchos mercados.
 MERCADOS_PISO = 200                          # mercados sin ningun patron para medir el piso con precision
 ANIOS_PISO = 3                               # duracion de cada uno
@@ -233,6 +253,12 @@ AR1_SIGMA_DIARIA = 0.15                      # desviacion del choque diario del 
 NOTICIA_FACTOR_VOL = 3.0                     # multiplicador de volatilidad al momento del anuncio  # PARAMETRO DE SIMULACION
 NOTICIA_DURACION_MIN = 5                     # minutos que dura el efecto del anuncio  # PARAMETRO DE SIMULACION
 FOMC_POR_ANIO = 8                            # reuniones FOMC simuladas por ano  # PARAMETRO DE SIMULACION
+# Que anuncios trae el calendario simulado. El de los puntos D y E es el de
+# empleo, IPC y FOMC (32 al ano). El punto F agrega el BCE (8 al ano) para
+# medir con la frecuencia de la lista cerrada de anuncios del pre-registro; el
+# calendario por defecto no cambia, asi D y E se siguen reproduciendo tal cual.
+ANUNCIOS_SIMULADOS = ("empleo", "ipc", "fomc")                        # PARAMETRO DE SIMULACION
+ANUNCIOS_SIMULADOS_LISTA_CERRADA = ("empleo", "ipc", "fomc", "bce")  # PARAMETRO DE SIMULACION
 ZONA_MERCADO = "America/New_York"            # zona que define la semana de mercado (domingo 17:00 a viernes 17:00)  # PARAMETRO DE SIMULACION
 
 # Multiplicador de volatilidad por hora de Londres (0..23): bajo en Asia, sube

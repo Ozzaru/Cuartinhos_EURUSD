@@ -362,7 +362,7 @@ def resumir_nula(materiales, cfg, desplazamientos=None):
 
 
 def correr_h4(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
-              candidatos=None, sigma=None, noticias=None):
+              candidatos=None, sigma=None, noticias=None, con_distribuciones=False):
     """
     H4 por INFERENCIA DE ALEATORIZACION.
 
@@ -396,6 +396,11 @@ def correr_h4(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
 
     Se informan las dos versiones del estadistico, estudentizada y sin
     estudentizar, para tener evidencia propia sobre cual se comporta mejor.
+
+    Con `con_distribuciones=True` devuelve (tabla, distribuciones), donde
+    `distribuciones` es (tipo, horizonte) -> t nulos validos. La potencia de H4
+    (punto F) las usa: la nula sale solo de los minutos sorteados, asi que no
+    cambia si a los eventos tratados se les suma una constante.
     """
     repeticiones = cfg.NULA_REPETICIONES if repeticiones is None else repeticiones
     if candidatos is None:
@@ -406,7 +411,7 @@ def correr_h4(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
     tratado_cand = candidatos["tratado"]
     dia_cand = candidatos["dia_codigo"]
 
-    filas = []
+    filas, distribuciones = [], {}
     for h in cfg.HORIZONTES:
         columna = f"ret_{h}"
         ret_cand = candidatos["retornos"][h]
@@ -424,21 +429,31 @@ def correr_h4(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
                                & np.isfinite(del_tipo["noticia"].to_numpy(float))]
             claves = (claves_de_eventos(usables, cal, candidatos, barras, cfg)
                       if len(usables) else np.array([], dtype=int))
-            filas.append(_una_prueba_h4(rng, usables, claves, columna, tipo, h,
-                                        ret_cand, pools, pos_cand, dia_cand,
-                                        repeticiones))
+            fila, t_validas = _una_prueba_h4(rng, usables, claves, columna, tipo, h,
+                                             ret_cand, pools, pos_cand, dia_cand,
+                                             repeticiones)
+            filas.append(fila)
+            distribuciones[(tipo, h)] = t_validas
+    if con_distribuciones:
+        return pd.DataFrame(filas), distribuciones
     return pd.DataFrame(filas)
 
 
 def _una_prueba_h4(rng, usables, claves, columna, tipo, h, ret_cand, pools,
                    pos_cand, dia_cand, repeticiones):
-    """Una celda de H4: un tipo de evento y un horizonte."""
+    """
+    Una celda de H4: un tipo de evento y un horizonte.
+
+    Devuelve (fila, t nulos validos); sin comparacion posible, los t nulos
+    quedan vacios.
+    """
     vacia = {"tipo": tipo, "horizonte": h, "cola": "mayor", "n_con": 0, "n_sin": 0,
              "dias_tratados": 0, "diferencia": np.nan, "error": np.nan,
              "t_observado": np.nan, "p_estudentizado": np.nan,
              "p_sin_estudentizar": np.nan, "repeticiones": 0, "n_descartados": 0}
+    sin_nula = np.array([], dtype=float)
     if len(usables) == 0:
-        return vacia
+        return vacia, sin_nula
 
     tratado = usables["noticia"].to_numpy(float)
     franja_evento = usables["pos_franja"].to_numpy(int)
@@ -457,7 +472,7 @@ def _una_prueba_h4(rng, usables, claves, columna, tipo, h, ret_cand, pools,
 
     if not usable.any() or len(np.unique(tratado[usable])) < 2:
         vacia["n_descartados"] = int((~usable).sum())
-        return vacia
+        return vacia, sin_nula
 
     direccion = usables["direccion"].to_numpy(float)[usable]
     y = usables[columna].to_numpy(float)[usable]
@@ -476,17 +491,18 @@ def _una_prueba_h4(rng, usables, claves, columna, tipo, h, ret_cand, pools,
             y_nulo, tratado_ok, dia_cand[sorteo])
 
     dias_tratados = int(pd.Series(dia_real[tratado_ok == 1.0]).nunique())
+    t_validas = t_nulas[np.isfinite(t_nulas)]
     return {
         "tipo": tipo, "horizonte": h, "cola": "mayor",
         "n_con": int((tratado_ok == 1.0).sum()), "n_sin": int((tratado_ok == 0.0).sum()),
         "dias_tratados": dias_tratados,
         "diferencia": diferencia, "error": error, "t_observado": t_obs,
-        "p_estudentizado": _p_una_cola(t_obs, t_nulas[np.isfinite(t_nulas)], "mayor"),
+        "p_estudentizado": _p_una_cola(t_obs, t_validas, "mayor"),
         "p_sin_estudentizar": _p_una_cola(diferencia, dif_nulas[np.isfinite(dif_nulas)],
                                           "mayor"),
         "repeticiones": int(np.isfinite(t_nulas).sum()),
         "n_descartados": int((~usable).sum()),
-    }
+    }, t_validas
 
 
 def _armar_pools(candidatos, disponible):
