@@ -20,3 +20,8 @@ __pycache__/
 Thumbs.db
 .vscode/
 .idea/
+
+# PDF: ningun paper se sube por error (derechos de autor y peso). La unica
+# excepcion es el PDF del pre-registro, que vive en registro/ y si se versiona.
+*.pdf
+!registro/*.pdf
