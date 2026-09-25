@@ -230,13 +230,38 @@ def correr(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
                      el promedio nulo, el p-valor de una cola y el de dos colas;
       distribuciones diccionario (tipo, horizonte) -> array de promedios nulos,
                      que los experimentos usan para los histogramas.
+
+    Es `sortear_nula` seguido de `resumir_nula`. Estan separadas porque el
+    control positivo (diseno D) sortea una sola vez y resume muchas veces.
+    """
+    materiales = sortear_nula(barras, cal, tabla_eventos, cfg, semilla,
+                              repeticiones=repeticiones, candidatos=candidatos,
+                              sigma=sigma)
+    return resumir_nula(materiales, cfg)
+
+
+def sortear_nula(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
+                 candidatos=None, sigma=None):
+    """
+    La parte cara de la nula: el sorteo de los minutos comparables y los
+    estadisticos de cada repeticion.
+
+    Nada de lo que se guarda aqui depende de los retornos de los EVENTOS: los
+    promedios nulos y sus t salen solo de los minutos sorteados (con la
+    direccion del evento y el dia del minuto sorteado). Por eso, si a los
+    retornos de los eventos se les suma una constante, la distribucion nula no
+    cambia y basta con volver a resumir (`resumir_nula`).
+
+    Devuelve una lista con un "material" por (tipo, horizonte), en el orden de
+    la tabla: y y dia de los eventos que entraron a la comparacion, promedios
+    nulos y t nulos. Un material con `vacio=True` es una celda sin comparacion.
     """
     repeticiones = cfg.NULA_REPETICIONES if repeticiones is None else repeticiones
     if candidatos is None:
         candidatos = preparar_candidatos(barras, cal, cfg, sigma=sigma)
 
     colas = {t: c for t, _, _, c in cfg.FAMILIA_PRINCIPAL}
-    filas, distribuciones = [], {}
+    materiales = []
     rng = np.random.default_rng(semilla)
     dia_cand = candidatos["dia_codigo"]
 
@@ -251,10 +276,12 @@ def correr(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
         pools = _armar_pools(candidatos, disponible) if disponible.any() else {}
 
         for tipo in cfg.TIPOS_EVENTO:
+            base = {"tipo": tipo, "horizonte": h, "cola": colas.get(tipo, "dos"),
+                    "vacio": True}
             del_tipo = tabla_eventos[tabla_eventos["tipo"] == tipo]
             usables = del_tipo[np.isfinite(del_tipo[columna].to_numpy(float))]
             if len(usables) == 0 or not disponible.any():
-                filas.append(_fila_vacia(tipo, h, colas.get(tipo, "dos")))
+                materiales.append(base)
                 continue
 
             franja_evento = usables["pos_franja"].to_numpy(int)
@@ -263,50 +290,74 @@ def correr(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
             indices, usable = _sortear(rng, pools, claves, franja_evento, pos_cand,
                                        repeticiones)
             if not usable.any():
-                filas.append(_fila_vacia(tipo, h, colas.get(tipo, "dos")))
+                materiales.append(base)
                 continue
 
             direccion = usables["direccion"].to_numpy(float)[usable]
-            y = usables[columna].to_numpy(float)[usable]
-            observado = float(np.mean(y))
             nulas = np.mean(ret_cand[indices[:, usable]] * direccion[None, :], axis=1)
 
             # Version estudentizada: el mismo promedio, dividido por su error
             # estandar agrupado por dia. Se calcula igual en los datos reales y
             # en cada repeticion, con la misma funcion.
-            dia_real = pd.factorize(pd.DatetimeIndex(usables["fecha_londres"]))[0][usable]
-            _, _, t_obs = mod_inferencia.media_agrupada(y, dia_real)
             t_nulas = np.full(repeticiones, np.nan)
             for r in range(repeticiones):
                 sorteo = indices[r, usable]
                 _, _, t_nulas[r] = mod_inferencia.media_agrupada(
                     ret_cand[sorteo] * direccion, dia_cand[sorteo])
-            t_validas = t_nulas[np.isfinite(t_nulas)]
 
-            cola = colas.get(tipo, "dos")
-            estudentizado = bool(getattr(cfg, "PRINCIPAL_ESTUDENTIZADO", False))
-            filas.append({
-                "tipo": tipo, "horizonte": h, "cola": cola,
-                "n_eventos": int(usable.sum()),
-                "n_descartados": int((~usable).sum()),
-                "media_observada": observado,
-                "media_nula": float(np.mean(nulas)),
-                "sd_nula": float(np.std(nulas, ddof=1)) if len(nulas) > 1 else np.nan,
-                "t_observado": t_obs,
-                "p_una_cola_media": _p_una_cola(observado, nulas, cola),
-                "p_dos_colas_media": _p_dos_colas(observado, nulas),
-                "p_una_cola_t": _p_una_cola(t_obs, t_validas, cola),
-                "p_dos_colas_t": _p_dos_colas(t_obs, t_validas),
-                "repeticiones": repeticiones,
-            })
-            # `p_una_cola` y `p_dos_colas` son las que usa el resto del
-            # programa: apuntan a la version elegida en config.
-            filas[-1]["p_una_cola"] = filas[-1][
-                "p_una_cola_t" if estudentizado else "p_una_cola_media"]
-            filas[-1]["p_dos_colas"] = filas[-1][
-                "p_dos_colas_t" if estudentizado else "p_dos_colas_media"]
-            distribuciones[(tipo, h)] = nulas
+            base.update(
+                vacio=False,
+                y=usables[columna].to_numpy(float)[usable],
+                dia=pd.factorize(pd.DatetimeIndex(usables["fecha_londres"]))[0][usable],
+                nulas=nulas,
+                t_validas=t_nulas[np.isfinite(t_nulas)],
+                n_descartados=int((~usable).sum()),
+                repeticiones=repeticiones)
+            materiales.append(base)
+    return materiales
 
+
+def resumir_nula(materiales, cfg, desplazamientos=None):
+    """
+    La tabla de la nula a partir de lo sorteado en `sortear_nula`.
+
+    `desplazamientos` (tipo -> numero) suma esa constante al retorno de cada
+    evento de ese tipo antes de calcular lo observado; la distribucion nula
+    queda intacta. Es lo que usa el control positivo para inyectar un efecto
+    exacto en el resultado. Sin desplazamientos, la tabla es la de `correr`.
+    """
+    desplazamientos = desplazamientos or {}
+    estudentizado = bool(getattr(cfg, "PRINCIPAL_ESTUDENTIZADO", False))
+    filas, distribuciones = [], {}
+    for m in materiales:
+        tipo, h, cola = m["tipo"], m["horizonte"], m["cola"]
+        if m["vacio"]:
+            filas.append(_fila_vacia(tipo, h, cola))
+            continue
+        y = m["y"] + desplazamientos.get(tipo, 0.0)
+        nulas, t_validas = m["nulas"], m["t_validas"]
+        observado = float(np.mean(y))
+        _, _, t_obs = mod_inferencia.media_agrupada(y, m["dia"])
+        fila = {
+            "tipo": tipo, "horizonte": h, "cola": cola,
+            "n_eventos": len(y),
+            "n_descartados": m["n_descartados"],
+            "media_observada": observado,
+            "media_nula": float(np.mean(nulas)),
+            "sd_nula": float(np.std(nulas, ddof=1)) if len(nulas) > 1 else np.nan,
+            "t_observado": t_obs,
+            "p_una_cola_media": _p_una_cola(observado, nulas, cola),
+            "p_dos_colas_media": _p_dos_colas(observado, nulas),
+            "p_una_cola_t": _p_una_cola(t_obs, t_validas, cola),
+            "p_dos_colas_t": _p_dos_colas(t_obs, t_validas),
+            "repeticiones": m["repeticiones"],
+        }
+        # `p_una_cola` y `p_dos_colas` son las que usa el resto del programa:
+        # apuntan a la version elegida en config.
+        fila["p_una_cola"] = fila["p_una_cola_t" if estudentizado else "p_una_cola_media"]
+        fila["p_dos_colas"] = fila["p_dos_colas_t" if estudentizado else "p_dos_colas_media"]
+        filas.append(fila)
+        distribuciones[(tipo, h)] = nulas
     return pd.DataFrame(filas), distribuciones
 
 

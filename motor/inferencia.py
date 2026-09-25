@@ -377,6 +377,33 @@ def romano_wolf(celdas, familia, dias, repeticiones, semilla):
       4. Se impone que los p-valores no bajen al avanzar.
 
     Devuelve un array de p-valores alineado con `familia`.
+
+    Es `romano_wolf_remuestreos` seguido de `romano_wolf_stepdown`.
+    """
+    beta_obs, error_obs, w = romano_wolf_remuestreos(celdas, familia, dias,
+                                                     repeticiones, semilla)
+    return romano_wolf_stepdown(t_de(beta_obs, error_obs), w)
+
+
+def t_de(beta, error):
+    """beta / error donde el error es positivo; NaN donde no."""
+    beta = np.asarray(beta, dtype=float)
+    error = np.asarray(error, dtype=float)
+    positivo = np.isfinite(error) & (error > 0)
+    return np.where(positivo, beta / np.where(positivo, error, 1.0), np.nan)
+
+
+def romano_wolf_remuestreos(celdas, familia, dias, repeticiones, semilla):
+    """
+    La parte cara de Romano-Wolf: los estadisticos centrados de cada remuestreo.
+
+    Devuelve (beta_obs, error_obs, w), alineados con `familia`; w tiene una
+    fila por remuestreo. Las pruebas sin t observado quedan con w = NaN.
+
+    Si a la y de una celda de solo constante se le suma un numero c, beta sube
+    c en la muestra y en cada remuestreo, y los residuos (y con ellos los
+    errores) no cambian: w no cambia. Por eso el control positivo calcula w una
+    sola vez y, para cada tamano de efecto, solo mueve el t observado.
     """
     claves = []
     for tipo, h, coeficiente, _ in familia:
@@ -385,24 +412,22 @@ def romano_wolf(celdas, familia, dias, repeticiones, semilla):
         claves.append((celda, coeficiente))
 
     m = len(familia)
-    t_obs = np.full(m, np.nan)
     beta_obs = np.full(m, np.nan)
+    error_obs = np.full(m, np.nan)
     for i, (celda, coeficiente) in enumerate(claves):
         if celda is None or coeficiente not in celda.nombres:
             continue
         beta, error, grupos = celda.estimar()
         j = celda.nombres.index(coeficiente)
         beta_obs[i] = beta[j]
-        if error[j] > 0:
-            t_obs[i] = beta[j] / error[j]
+        error_obs[i] = error[j]
 
-    vivos = np.flatnonzero(np.isfinite(t_obs))
-    salida = np.full(m, np.nan)
+    vivos = np.flatnonzero(np.isfinite(t_de(beta_obs, error_obs)))
+    w = np.full((repeticiones, m), np.nan)
     if len(vivos) == 0:
-        return salida
+        return beta_obs, error_obs, w
 
     rng = np.random.default_rng(semilla)
-    w = np.full((repeticiones, m), np.nan)
     for b in range(repeticiones):
         muestra = rng.choice(dias, size=len(dias), replace=True)
         cache = {}
@@ -415,6 +440,20 @@ def romano_wolf(celdas, familia, dias, repeticiones, semilla):
             j = celda.nombres.index(coeficiente)
             if np.isfinite(error[j]) and error[j] > 0:
                 w[b, i] = (beta[j] - beta_obs[i]) / error[j]
+    return beta_obs, error_obs, w
+
+
+def romano_wolf_stepdown(t_obs, w):
+    """
+    Los p-valores de Romano-Wolf a partir de los t observados y de los
+    estadisticos centrados de los remuestreos (pasos 3 y 4 de `romano_wolf`).
+    """
+    t_obs = np.asarray(t_obs, dtype=float)
+    m = len(t_obs)
+    vivos = np.flatnonzero(np.isfinite(t_obs))
+    salida = np.full(m, np.nan)
+    if len(vivos) == 0:
+        return salida
 
     absoluto = np.abs(w)
     orden = vivos[np.argsort(-np.abs(t_obs[vivos]), kind="stable")]

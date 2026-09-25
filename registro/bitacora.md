@@ -1512,3 +1512,183 @@ python -m experimentos.auditoria_causal                    40 cortes, ~20 s
 python -m experimentos.control_positivo --piso             piso y unidades, ~1 min
 python -m experimentos.control_positivo --piloto           piloto (hoy: diseno A, a reemplazar por D)
 ```
+
+---
+
+## Punto E (segunda parte) — Diseno D, control B y piloto
+
+- **Fecha**: 2026-09-25
+- **Commit**: pendiente (esta parte se commitea y se sube al cerrarla, despues
+  de la corrida larga).
+- **Tests**: `pytest` -> 210 pasan, 0 fallan, 0 avisos (con el `.venv`: el
+  Python del sistema trae pandas 3 y ahi falla `test_mercado.py`, como se
+  preveia en `requirements.txt`).
+- **Estado**: D y B programados; piloto corrido. **Detenido a la espera del OK
+  para la corrida larga.** 21 parametros `# POR DECIDIR` (sin cambios).
+
+### Que se programo
+
+- **Diseno D** (`experimentos/control_positivo.py`, `corrida_curva`): por cada
+  mercado limpio se hace UNA vez lo caro (eventos, candidatos, sorteo de la
+  nula y remuestreos de Romano-Wolf). Despues, para cada delta, se suma +delta
+  al retorno normalizado de las sostenidas y -delta al de los reingresos, en
+  los 4 horizontes, y se recalculan lo observado, los p, Holm y Romano-Wolf.
+- **Por que vale reutilizar**:
+  - La distribucion nula sale solo de los minutos sorteados (direccion del
+    evento, retorno y dia del minuto sorteado), asi que no depende de los
+    retornos de los eventos.
+  - En Romano-Wolf, sumar una constante a una celda de solo constante mueve
+    igual la estimacion de la muestra y la de cada remuestreo, y no toca
+    residuos ni errores: los estadisticos centrados `w` no cambian. Solo se
+    mueve el t observado.
+  - Las dos cosas estan probadas en los tests.
+- **Reorganizacion del motor, sin cambiar resultados**:
+  - `nula.correr` = `sortear_nula` + `resumir_nula`.
+  - `inferencia.romano_wolf` = `romano_wolf_remuestreos` +
+    `romano_wolf_stepdown` (con `t_de`).
+  - Comprobado contra `HEAD` en un mercado simulado de 2 anos: tabla de la
+    nula, distribuciones y p de Romano-Wolf **identicos bit a bit**.
+- **Grilla fina**: `GRILLA_POTENCIA` (de 0 a 0,20 cada 0,005) mas
+  `TAMANOS_EFECTO` dan 41 delta. Romano-Wolf tambien se evalua en la grilla
+  fina porque, por la invariancia de `w`, no cuesta nada. Las tablas de
+  potencia se muestran en `TAMANOS_EFECTO`; el efecto minimo detectable sale de
+  la grilla fina, con intervalo al 95% remuestreando mercados.
+- **Reporte de D**:
+  1. Potencia por familia y por celda (Holm, `ALFA_PRINCIPAL`) con su error de
+     Monte Carlo. Las 4 combinaciones van como descripcion.
+  2. Efecto minimo detectable al 80%.
+  3. Sesgo por celda del estimador del informe (observado menos nulo, en la
+     direccion de la hipotesis), mas el de la media cruda. En D el sesgo no
+     depende de delta, y se reporta la variacion maxima como control.
+  4. Tasa de rechazo en delta = 0 por duracion, **aparte** de la del punto D,
+     sin mezclarlas.
+  5. Tabla de potencia contra costo, con la potencia bruta en delta - c,
+     declarada como aproximacion.
+  6. Grafico.
+- **Control B** (`corrida_control_b`): inyeccion de precio autoconsistente con
+  `DELTAS_CONTROL_B` = 0,05 y 0,10, `ANIOS_CONTROL_B` = 4 y
+  `MERCADOS_CONTROL_B` = 10.
+  - Se itera inyectar -> detectar hasta que los eventos (instante, tipo y
+    direccion) coinciden, con un tope de `ITERACIONES_MAX_CONTROL_B` = 50.
+  - Reporta el delta realizado por celda de dos formas:
+    - **por evento**: los mismos eventos, en el mercado inyectado contra el
+      limpio;
+    - **de celda**: lo que se movio el promedio de la celda.
+  - **No corre la nula** y no decide nada.
+  - Declarado: la amplitud de la deriva usa el sigma_ref de la vuelta anterior.
+    Al converger coinciden los eventos, pero sigma_ref puede diferir en la
+    cuarta cifra.
+
+### Diferencias con el TRASPASO (a revisar por el grupo)
+
+1. El TRASPASO escribia D como signo * delta * raiz(min(h, T) / h). El mensaje
+   que abrio esta parte pide **+delta en los 4 horizontes**, con un test de que
+   la media se mueve exactamente delta, y eso es lo que coincide con la
+   decision 1 del grupo ("sumar delta al retorno normalizado"). Se programo
+   asi. Consecuencia: en D, un horizonte que cruza el fin de la franja tambien
+   recibe delta completo.
+2. B: el TRASPASO decia 30 mercados y "delta realizado y potencia". El mensaje
+   pide "pocos mercados" y "delta realizado por celda". Quedo en 10 mercados,
+   sin la nula ni potencia. Si se quiere la potencia de B, hay que agregar la
+   nula: ~3 veces mas caro por mercado.
+3. `MERCADOS_PILOTO` bajo de 3 a 2, como pidio el mensaje.
+
+### Piloto (2 mercados de D por duracion y 2 de B; 500 repeticiones)
+
+| etapa | anios | s por mercado | pico GB |
+|---|---|---|---|
+| D | 4 | 7,9 | 0,51 |
+| D | 13 | 22,1 | 1,57 |
+| B | 4 | 21,4 | 0,79 |
+
+El diseno A tardaba 42 s y 122 s por mercado con 7 delta; D tarda 8 s y 22 s
+con 41 delta.
+
+**Estimacion de la corrida completa** (30 mercados de D por duracion y 10 de B),
+con 3,0 GB disponibles, que es poco:
+
+| bloque | procesos | minutos |
+|---|---|---|
+| D, 4 anos | 4 | ~1 |
+| D, 13 anos | 1 | ~11 |
+| B | 2 | ~2 |
+
+**Total: ~14 minutos**, dentro de la hora y sin recortes. Con mas memoria libre
+se reparte en mas procesos y baja.
+
+**Primera mirada** (2 mercados: no es la curva):
+
+- El delta realizado en D se aparta del nominal en 6e-17 como maximo, y el
+  sesgo varia entre delta en 6e-17: cero salvo redondeo, como debe ser.
+- La mediana del p de Holm baja con delta:
+  - 4 anos: 1; 0,78; 0,64; 0,56; 0,10; 0,012; 0,012.
+  - 13 anos: 0,91; 0,36; 0,11; 0,021; 0,012; 0,012; 0,012.
+- B convergio en 4 de 4 casos, en 5 a 9 iteraciones. Razon realizado / nominal
+  por evento:
+  - reingresos: 0,78-0,85;
+  - sostenidas: 0,39-0,75 (la mas baja es la de fin de franja).
+  - Coincide con lo que se habia medido antes: la superposicion con el
+    reingreso diluye sobre todo a las sostenidas.
+- El reporte final y el grafico se probaron con los datos del piloto (en el
+  scratchpad, sin escribir en `resultados/`).
+
+### Siguiente paso
+
+Con el OK del grupo: `python -m experimentos.control_positivo`, que corre D
+(4 y 13 anos) y B. Despues, reporte, grafico y bitacora; commit, commit del
+hash y `git push origin main`.
+
+### Aprobacion y cambios antes de la corrida larga (2026-09-25)
+
+El grupo aprobo D y B tal como quedaron y los tres puntos en que se aparto del
+TRASPASO (siguen el mensaje que abrio esta parte). Verifico que el bootstrap de
+Romano-Wolf esta centrado, asi que mover solo el t observado es correcto.
+Como D salio barato, se gasta en precision:
+
+1. **4 anos con 200 mercados** (antes 30). Es la duracion que confirma:
+   - da un efecto minimo detectable preciso;
+   - en delta = 0 mide el tamano con cuatro veces mas mercados que el punto D.
+2. **Se agrega 6 anos** (el tramo sellado) con 100 mercados; 13 anos queda en
+   30. Los mercados por duracion van a config: `MERCADOS_POR_DURACION` =
+   {4: 200, 6: 100, 13: 30}. `REPETICIONES_POTENCIA` se elimina.
+3. **B con tres escenarios** (`ESCENARIOS_CONTROL_B`): ambos tipos a la vez,
+   solo sostenidas y solo reingresos, con delta = 0,05 y 0,10.
+   - Se mide el delta realizado en las DOS celdas, incluida la no inyectada:
+     eso es el contagio por la superposicion.
+   - Lectura aproximada: la potencia de B es la de D en el delta realizado.
+4. **Nueva regla de `ALFA_PRINCIPAL`**, escrita antes de correr (ver abajo).
+5. **Tiempo**: el total se estima con el piloto; 6 anos se interpola entre 4 y
+   13, y B se escala por 3 (el piloto midio un escenario).
+   - Si pasa de `MINUTOS_MAX_CORRIDA` = 60, se recortan primero los mercados
+     de 13 anos y se dice en el informe.
+   - Estimado: ~34 minutos, sin recorte.
+
+### Regla de ALFA_PRINCIPAL para la corrida larga (ESCRITA ANTES DE CORRER)
+
+**Reemplaza a la medicion del punto D.**
+- El punto D decidia con la tasa por prueba de 50 mercados de 3 anos.
+- Desde ahora decide la tasa por prueba en delta = 0 del bloque de 4 anos del
+  control positivo (`ANIOS_REGLA_ALFA` = 4, 200 mercados).
+- Por que: es el mismo test (la nula emparejada, en mercados sin efecto), con
+  cuatro veces mas mercados, y en la duracion que confirma.
+
+**Objetivo explicito**: que el tamano real POR PRUEBA de la familia principal
+no pase del 5%.
+
+**Medicion**: tasa por prueba (p bruto de la nula <= alfa, en las 6 pruebas
+confirmatorias), con su IC95 remuestreando mercados (10.000 remuestreos).
+
+**Regla**:
+- Si con alfa 0,05 el IC queda entero sobre 0,05, y con 0,025 su limite
+  inferior no pasa de 0,05: `ALFA_PRINCIPAL = 0,025`.
+- Si con alfa 0,05 el IC contiene a 0,05: se queda en 0,05.
+- Si incluso con 0,025 el limite inferior pasa de 0,05: **el control falla**.
+  El programa escribe solo la regla y se detiene; se explica y no se sigue.
+- Caso que el grupo no listo, IC con 0,05 entero BAJO 0,05: el objetivo se
+  cumple, asi que se queda 0,05. Es una interpretacion propia, escrita aqui
+  antes de correr para que no dependa del resultado.
+
+**Que se reporta**: la potencia con los dos alfas, marcando como principal el
+que resulte de la regla. Aparte, sin mezclarlas, la tasa familiar con Holm y
+las tasas de 6 y 13 anos. El codigo es `regla_alfa_principal` y
+`aplicar_regla_alfa` en `experimentos/control_positivo.py`, con tests.

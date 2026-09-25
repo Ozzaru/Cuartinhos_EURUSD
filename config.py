@@ -112,7 +112,7 @@ PRINCIPAL_ESTUDENTIZADO = True               # True = el estadistico de H1 y H2 
 # =============================================================================
 ALFA = 0.05                                  # nivel de significancia de moderadores (H3) y H4, que estan calibradas
 ALFA_ESTRICTO = 0.025                        # la alternativa que la regla del punto E puede elegir para la familia principal
-ALFA_PRINCIPAL = 0.05                        # nivel de la familia principal (H1 y H2), fijado por la regla del punto E (ver bitacora)
+ALFA_PRINCIPAL = 0.05                        # nivel de la familia principal (H1 y H2); lo fija la regla del punto E, 2a parte: delta = 0 del bloque de 4 anos del control positivo (ver bitacora)
 REMUESTREOS_IC_MERCADOS = 10000              # remuestreos de MERCADOS para el intervalo de una tasa por prueba
 
 # Holm sobre los p-valores de la nula emparejada, fijado en el punto E SIN mirar
@@ -176,11 +176,40 @@ SEMILLA = 20260916                           # semilla maestra; cada corrida der
 ANIOS = 3                                    # duracion de cada mercado simulado del control negativo
 MERCADOS_CONTROL_NEGATIVO = 50               # mercados independientes del control negativo
 TAMANOS_EFECTO = [0, 0.01, 0.02, 0.03, 0.05, 0.10, 0.20]  # deltas inyectados en el control positivo (en unidades de retorno normalizado)
-ANIOS_POTENCIA = [4, 13]                     # duraciones evaluadas: 4 ~ validacion, 13 ~ desarrollo (6 ~ sellado si el tiempo lo permite)
-REPETICIONES_POTENCIA = 30                   # mercados por combinacion (delta, duracion)
+ANIOS_POTENCIA = [4, 6, 13]                  # duraciones evaluadas: 4 ~ validacion, 6 ~ sellado, 13 ~ desarrollo
+# Mercados por duracion. 4 anos es la duracion que CONFIRMA: con 200 mercados
+# da un efecto minimo detectable preciso y, en delta = 0, la medicion del
+# tamano que usa la regla de ALFA_PRINCIPAL.
+MERCADOS_POR_DURACION = {4: 200, 6: 100, 13: 30}
+ANIOS_REGLA_ALFA = 4                         # duracion cuyo punto delta = 0 alimenta la regla de ALFA_PRINCIPAL
+MINUTOS_MAX_CORRIDA = 60                     # si la estimacion pasa de esto, se recortan primero los mercados de la duracion mas larga
 ALFAS_POTENCIA = [ALFA, ALFA_ESTRICTO]       # niveles con que se DESCRIBE la curva (la decision usa ALFA_PRINCIPAL)
 POTENCIA_OBJETIVO = 0.80                     # potencia con la que se define el efecto minimo detectable
-MERCADOS_PILOTO = 3                          # mercados del piloto que estima el tiempo total antes de la corrida larga
+MERCADOS_PILOTO = 2                          # mercados del piloto (por duracion) que estiman el tiempo total antes de la corrida larga
+
+# Diseno D (curva): el efecto se suma al retorno normalizado de cada evento, asi
+# que cada delta extra cuesta casi nada. La curva se evalua tambien sobre esta
+# grilla fina, para que el efecto minimo detectable no dependa de interpolar
+# entre puntos lejanos de TAMANOS_EFECTO. Es resolucion de calculo, no una
+# decision del estudio.
+GRILLA_POTENCIA = [round(0.005 * k, 3) for k in range(41)]   # de 0 a 0,20 cada 0,005
+
+# Control B (descriptivo, no decide nada): el efecto se inyecta en los PRECIOS
+# y se itera inyectar -> detectar hasta que los eventos que reciben el efecto
+# son los que el motor detecta. Mide cuanto de un efecto de precio llega a las
+# celdas cuando H1 y H2 actuan a la vez.
+DELTAS_CONTROL_B = [0.05, 0.10]              # tamanos inyectados en precios
+ANIOS_CONTROL_B = 4                          # duracion de cada mercado
+MERCADOS_CONTROL_B = 10                      # pocos: el delta realizado promedia miles de eventos por mercado
+# Escenarios de B: que tipos reciben el efecto. En los escenarios "solo" se
+# mide tambien la celda NO inyectada: cuanto se le contagia por la
+# superposicion de sostenidas y reingresos.
+ESCENARIOS_CONTROL_B = {
+    "ambos": ["sostenida", "reingreso"],
+    "solo_sostenidas": ["sostenida"],
+    "solo_reingresos": ["reingreso"],
+}
+ITERACIONES_MAX_CONTROL_B = 50               # tope de la iteracion; si no converge, se informa (en los ensayos: 4 a 15)
 
 # El piso: el sesgo propio de los eventos, medido sin la nula en muchos mercados.
 MERCADOS_PISO = 200                          # mercados sin ningun patron para medir el piso con precision
