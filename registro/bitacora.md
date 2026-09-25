@@ -2038,3 +2038,5 @@ correr `--piso`, `--piloto` y la curva, unos 30 minutos.)
 
 Esperar las decisiones del grupo sobre la tabla (en especial la seccion e, H4)
 antes del paso 2.
+
+**Hash del paso 1**: `ecb01fb` (`punto F (paso 1): tabla de decisiones, potencia de H3 y H4 y anexo de sensibilidad`). Sin push.
