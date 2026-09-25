@@ -1201,6 +1201,24 @@ def _markdown_curva(curva, control, cfg, minutos, repeticiones, regla, plan, not
                _tabla(pd.DataFrame(filas).round(4)),
                "\nPor celda (Holm):\n", _tabla(mde_celda.drop(columns="mde").round(4))]
 
+    # 2b. El titular del pre-registro: por celda, en unidades y en pips
+    ruta_factores = os.path.join(CARPETA, "control_positivo_factores.csv")
+    if os.path.exists(ruta_factores):
+        tabla = pd.read_csv(ruta_factores, dtype={"idx_franja": str})
+        mediana = tabla[(tabla["vol"] == cfg.VOL_ANUAL_SIMULACION)
+                        & (tabla["idx_franja"] == "todas")].set_index("horizonte")["mediana"]
+        en_pips = mde_celda[["anios", "tipo", "horizonte", "mde"]].copy()
+        en_pips["pips_por_unidad"] = en_pips["horizonte"].astype(str).map(mediana)
+        en_pips["mde_pips"] = en_pips["mde"] * en_pips["pips_por_unidad"]
+        partes += [f"\n**Efecto minimo detectable POR CELDA (el que va al pre-registro)**, "
+                   f"Holm con alfa {cfg.ALFA_PRINCIPAL}, en unidades normalizadas y en pips. "
+                   f"Los pips usan el factor mediano pips / unidad con volatilidad "
+                   f"{cfg.VOL_ANUAL_SIMULACION} (etapa 1): **es un orden de magnitud**; la "
+                   f"traduccion definitiva sera evento por evento con el sigma_ref de los "
+                   f"datos reales. El de familia (arriba) se reporta pero no es el titular: "
+                   f"supone que las 6 celdas tienen el efecto y cuenta cualquier rechazo.\n",
+                   _tabla(en_pips.round(4))]
+
     # 3. Por celda
     en_tamanos = celda[celda["delta"].isin(tamanos)].copy()
     partes += ["\n## 3. Potencia por celda\n"]

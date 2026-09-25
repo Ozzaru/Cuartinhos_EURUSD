@@ -1786,3 +1786,186 @@ franja perderia buena parte de su potencia por el contagio del reingreso. Es
 una pregunta sobre como se define H1; no se cambia nada.
 
 **Hash de cierre de esta parte**: `b2337cb` (`punto E (2a parte): curva de potencia (D), control B y ALFA_PRINCIPAL = 0,025`). Sin push hasta que el grupo revise los resultados.
+
+---
+
+## Cierre del punto E — diagnostico del tamano y declaraciones
+
+- **Fecha**: 2026-09-25
+- **Que se hizo**: sin correr ningun mercado.
+  - `experimentos/diagnostico_tamano.py`: diagnostico del tamano con los CSV
+    guardados.
+  - Tabla del efecto minimo detectable POR CELDA en pips, dentro del reporte
+    del control positivo, regenerado con `--solo-reporte` (mismos numeros).
+  - Declaraciones y TRASPASO para el punto F.
+- **Tests**: 220 pasan, 0 fallan, 0 avisos (con el `.venv`).
+
+### Diagnostico del tamano (solo para declarar; NO cambia ALFA_PRINCIPAL)
+
+- **Datos**: CSV del punto D (familia principal, 50 mercados de 3 anos, R =
+  1000) y del punto E (delta = 0: 4 anos x 200, 6 x 100, 13 x 30, R = 500).
+  Solo pruebas confirmatorias.
+- **La cola opuesta sale del mismo CSV**: p_opuesto = (R + 2)/(R + 1) - p.
+  - Es exacto sin empates. Se verifico que todos los p caen en la grilla
+    k/(R + 1), y un test lo compara con el calculo directo.
+
+**1. Simetria del exceso.** Tasa por prueba en la cola de H1/H2 contra la cola
+opuesta, con alfa 0,05. IC95 de la diferencia remuestreando mercados:
+
+| duracion | cola de la hipotesis | cola opuesta | diferencia [IC95] | p medio |
+|---|---|---|---|---|
+| D, 3 anos | 7,7% | 3,7% | +4,0 [-0,7; +8,7] | 0,467 |
+| E, 4 anos | 7,4% | 6,6% | +0,8 [-1,7; +3,3] | 0,494 |
+| E, 6 anos | 4,3% | 5,3% | -1,0 [-4,2; +2,0] | 0,498 |
+| E, 13 anos | 6,7% | 11,7% | -5,0 [-12,8; +2,8] | 0,520 |
+
+- **4 anos**: el exceso esta en las DOS colas (6,6% tambien en la opuesta). No
+  se demuestra que favorezca a H1/H2. Con alfa 0,025: 4,25% contra 3,2%,
+  diferencia [-0,8; +2,9].
+- **Punto D, 3 anos**: con 0,025 la asimetria si sale distinta de cero
+  (+2,7 [+0,3; +5,0]), con 50 mercados. Con 0,05, no.
+- **p medio**: queda entre 0,47 y 0,52 en todos los bloques.
+- **13 anos**: el p medio de las sostenidas es 0,58-0,62, coherente con su
+  sesgo negativo (declarado abajo).
+
+**2. 4 anos contra 6 anos.** Diferencia de la tasa por prueba, cada bloque
+remuestreado por su lado:
+
+| cola | alfa | 4 anos | 6 anos | 4 - 6 [IC95] |
+|---|---|---|---|---|
+| hipotesis | 0,05 | 7,4% | 4,3% | +3,1 [+0,4; +5,8] |
+| hipotesis | 0,025 | 4,25% | 1,5% | +2,75 [+1,0; +4,6] |
+| opuesta | 0,05 | 6,6% | 5,3% | +1,25 [-1,5; +4,0] |
+| opuesta | 0,025 | 3,2% | 2,7% | +0,5 [-1,4; +2,4] |
+
+- En la cola de la hipotesis, la diferencia entre 4 y 6 anos es mayor que el
+  azar con los dos alfas. En la opuesta, no.
+- Son cuatro intervalos mirados a la vez y ninguno se corrigio por
+  multiplicidad. No hay una explicacion mecanica a la vista: los dos bloques
+  usan el mismo codigo y la misma nula, y solo cambian la duracion y las
+  semillas. Se declara tal cual.
+
+### Declaraciones al cerrar E
+
+1. **El efecto minimo detectable que va al pre-registro es el POR CELDA.**
+   Holm con alfa 0,025, potencia 80%, en unidades normalizadas y en pips. Los
+   pips usan el factor mediano pips/unidad con volatilidad 7% y son **un orden
+   de magnitud**: la traduccion definitiva sera evento por evento con el
+   sigma_ref real.
+
+   | celda | 4 anos (confirma) | 6 anos | 13 anos |
+   |---|---|---|---|
+   | reingreso 30 | 0,069 (0,39 pips) | 0,056 (0,32) | 0,036 (0,21) |
+   | reingreso 60 | 0,067 (0,54) | 0,054 (0,43) | 0,042 (0,33) |
+   | reingreso fin de franja | 0,067 (1,10) | 0,054 (0,88) | 0,038 (0,61) |
+   | sostenida 30 | 0,086 (0,49) | 0,075 (0,43) | 0,062 (0,35) |
+   | sostenida 60 | 0,085 (0,68) | 0,074 (0,60) | 0,060 (0,48) |
+   | sostenida fin de franja | 0,090 (1,47) | 0,072 (1,17) | 0,057 (0,92) |
+
+   - IC95 por mercados en 4 anos: unos +-0,004 a +-0,005 (ver el reporte).
+   - Factores pips/unidad: 5,68 (30 min), 8,04 (60) y 16,28 (fin de franja).
+   - El de **familia** (0,050 / 0,041 / 0,028) se reporta pero **no es el
+     titular**: supone que las 6 celdas tienen el efecto y cuenta cualquier
+     rechazo.
+2. **El tamano medido no es igual entre bloques**, y se declaran todos, sin
+   promediarlos:
+   - 4 anos tiene exceso: 7,4% con 0,05 y 4,25% con 0,025.
+   - 6 anos no: 4,3% con 0,05 y 1,5% con 0,025.
+   - 13 anos: 6,7% y 4,4%, con 30 mercados.
+   - Punto D, 3 anos: 7,7% con 0,05.
+   - `ALFA_PRINCIPAL = 0,025` se mantiene por la regla escrita antes de correr.
+     El diagnostico de arriba no la cambia.
+3. **Lectura de B.**
+   - El contagio entre celdas siempre va EN CONTRA de la otra hipotesis, asi
+     que la superposicion no crea falsos positivos.
+   - Pero si solo existiera la reversion (H2), la celda de sostenidas saldria
+     negativa: -29% a -63% del delta segun el horizonte.
+   - Con ambos mecanismos, H1 a fin de franja conserva cerca del 40% del delta.
+4. **Sesgo de 13 anos en sostenidas**: -0,004 a -0,007, unos 2 errores de
+   Monte Carlo, con 30 mercados. Se declara: va contra H1 y es chico frente al
+   efecto minimo detectable (0,057-0,062 en esas celdas). No se investiga mas.
+
+### TRASPASO — para abrir el punto F en una sesion nueva
+
+**Estado**:
+- Fase 1 (motor y controles con datos simulados) completa hasta el punto E.
+  NO se descargaron ni se miraron datos reales.
+- 220 tests, 0 avisos, con el `.venv` (pandas 2.2.3; con el Python del sistema
+  falla un test por pandas 3).
+- Todo subido a `origin/main`.
+- Controles hechos:
+  - negativo (D);
+  - auditoria causal (E: 40 cortes con igualdad exacta, y detecta una fuga
+    sembrada);
+  - piso sin sesgo (E: 200 mercados);
+  - positivo con el diseno D y el control B (E).
+
+**Numeros que van al pre-registro**:
+- `ALFA_PRINCIPAL = 0,025` (Holm sobre la nula emparejada, a una cola), fijado
+  por la regla escrita antes de la corrida larga.
+  - Tasa por prueba con 0,05: 7,4% [5,5%-9,4%].
+  - Con 0,025: 4,25% [2,8%-5,8%].
+  - Datos: 4 anos, 200 mercados.
+- Efecto minimo detectable POR CELDA (tabla de arriba).
+  - Titular: 4 anos, 0,067-0,069 en reingresos y 0,085-0,090 en sostenidas.
+  - En pips: ~0,4-1,5 como orden de magnitud.
+- Tamanos medidos por bloque, declarados por separado (declaracion 2) y el
+  diagnostico de simetria.
+- Romano-Wolf: prueba secundaria (t de la regresion, dos colas, sin la nula).
+- Horizonte de 120: descriptivo.
+- Lectura de costos: aproximacion por potencia bruta en delta - c. Medio pip
+  de ida y vuelta vale 0,03-0,09 unidades, del mismo orden que el efecto minimo
+  detectable.
+
+**Lo que F tiene que decidir**:
+1. **Las cuatro preguntas abiertas**:
+   - Que se prueba: efecto > 0 (lo actual) o efecto > costo.
+   - La superposicion de eventos: el 71-73% de las sostenidas reingresa en la
+     misma franja; el contagio medido en B es de -29% a -63% del delta sobre
+     H1. Hay que decidir si se redefine H1, se separan eventos o se declara.
+   - Donde y como registrar (plataforma y formato del pre-registro; el PDF va
+     en `registro/`, que es lo unico que el `.gitignore` deja versionar).
+   - Calendario: cuando se descarga el tramo de validacion y cuando se abre el
+     sellado.
+2. **Los 21 parametros `# POR DECIDIR` de `config.py`**:
+   - Datos y eventos: `COBERTURA_MIN_REFERENCIA`, `UMBRAL_MODO`,
+     `UMBRAL_PIPS`, `UMBRAL_VOL`, `M_SOSTENIDA_MIN`, `REGLA_SOSTENIDA`,
+     `VENTANA_REINGRESO_MIN`, `HORIZONTE_PRINCIPAL`, `DIAS_VOL_REF_MIN`,
+     `TOLERANCIA_PRECIO_MIN`.
+   - Moderadores: `PASO_REDONDO`, `RADIO_REDONDO_PIPS`,
+     `RADIO_EXTREMO_PREVIO_PIPS`, `DIA_PREVIO_MIN_COBERTURA`,
+     `DIAS_COMPRESION_MIN`, `CORTE_COMPRESION`, `VENTANA_NOTICIAS_MIN`.
+   - Nula: `NULA_GRUPOS_VOL_RECIENTE`, `VENTANA_VOL_RECIENTE_MIN`.
+   - H4: `MIN_DIAS_TRATADOS`. El grupo ya lo confirmo en 15; falta quitarle la
+     marca.
+   - Costos: `COSTOS_IDA_VUELTA_PIPS`.
+3. **La potencia de H3 y H4**: el punto E solo midio la familia principal (H1 y
+   H2). Falta decidir si se mide y con que diseno (H3: coeficientes de la
+   regresion con moderadores; H4: inferencia de aleatorizacion con pocos dias
+   tratados).
+4. **La definicion del costo**: bid/ask observado + comision + una vela de
+   latencia. Hay que fijar como se mide cada parte con los datos reales y con
+   que valor entra en `COSTOS_IDA_VUELTA_PIPS`, o si se reemplaza por un costo
+   evento por evento.
+
+**Reglas que siguen**:
+- Sin datos reales hasta que F cierre el pre-registro.
+- Causalidad estricta.
+- Todo parametro nuevo va a config.
+- Si un control falla, no se ajusta nada para que pase.
+- Tests con 0 avisos.
+- Si una corrida pasa de una hora, se recorta tamano de muestra y se dice.
+- Regla de git al inicio de la bitacora.
+- No se toca `Cuartinhos_Goty`; `docs/papers/` solo se lee si se pide.
+
+**Como retomar**:
+
+```
+.venv\Scripts\activate
+pytest                                                  220 pasan, 0 avisos
+python -m experimentos.control_positivo --solo-reporte  reporte de la curva desde los CSV
+python -m experimentos.diagnostico_tamano               diagnostico del tamano desde los CSV
+```
+
+(Los CSV de `resultados/` no se versionan: en una maquina nueva hay que volver a
+correr `--piso`, `--piloto` y la curva, unos 30 minutos.)

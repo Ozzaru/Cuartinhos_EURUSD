@@ -13,7 +13,7 @@ Esta fase NO usa datos reales: todo se valida con mercados simulados.
 | `config.py` | Todos los parametros. Ningun otro archivo inventa numeros. |
 | `motor/` | `franjas` (calendario), `eventos` (ruptura, sostenida, reingreso), `resultados` (retornos normalizados), `moderadores` (H3, H4), `nula` (nula emparejada), `inferencia` (regresiones y pruebas multiples), `auditoria` (prueba de truncamiento). |
 | `simulacion/` | `mercado` (precios artificiales sin memoria) e `inyeccion` (efecto conocido). |
-| `experimentos/` | Control negativo (falsos positivos), control positivo (potencia) y auditoria causal. |
+| `experimentos/` | Control negativo (falsos positivos), control positivo (potencia, diseno D y control B), diagnostico del tamano y auditoria causal. |
 | `tests/` | Pruebas con series pequenas hechas a mano. |
 | `registro/` | Bitacora de trabajo y borrador de pre-registro. |
 | `datos/`, `resultados/` | Ignoradas por git. Se regeneran corriendo el codigo. |
