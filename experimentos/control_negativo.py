@@ -469,6 +469,11 @@ def _alfa_principal():
     """
     Aplica la regla de ALFA_PRINCIPAL a los CSV guardados del control negativo.
 
+    HISTORICA: es la regla de la primera parte del punto E. Desde la segunda
+    parte, ALFA_PRINCIPAL lo fija la regla del control positivo (delta = 0 del
+    bloque de 4 anos, 200 mercados; ver `control_positivo.regla_alfa_principal`
+    y la bitacora). Se conserva para poder reproducir aquella decision.
+
     Solo lee: no corre ningun mercado. Mira la familia principal tal como quedo
     (sin los horizontes descriptivos) y calcula la tasa por prueba con su
     intervalo remuestreando mercados, con ALFA y con ALFA_ESTRICTO.

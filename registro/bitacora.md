@@ -1518,13 +1518,14 @@ python -m experimentos.control_positivo --piloto           piloto (hoy: diseno A
 ## Punto E (segunda parte) — Diseno D, control B y piloto
 
 - **Fecha**: 2026-09-25
-- **Commit**: pendiente (esta parte se commitea y se sube al cerrarla, despues
-  de la corrida larga).
-- **Tests**: `pytest` -> 210 pasan, 0 fallan, 0 avisos (con el `.venv`: el
+- **Commits**: `91b3ea2` (codigo y regla del alfa, ANTES de la corrida) y el de
+  cierre, con los resultados (hash anotado al final de esta seccion). **Sin push**:
+  se sube cuando el grupo revise los resultados.
+- **Tests**: `pytest` -> 216 pasan, 0 fallan, 0 avisos (con el `.venv`: el
   Python del sistema trae pandas 3 y ahi falla `test_mercado.py`, como se
   preveia en `requirements.txt`).
-- **Estado**: D y B programados; piloto corrido. **Detenido a la espera del OK
-  para la corrida larga.** 21 parametros `# POR DECIDIR` (sin cambios).
+- **Estado**: D y B programados, piloto y corrida larga hechos. La regla fijo
+  **`ALFA_PRINCIPAL = 0,025`**. 21 parametros `# POR DECIDIR` (sin cambios).
 
 ### Que se programo
 
@@ -1692,3 +1693,94 @@ confirmatorias), con su IC95 remuestreando mercados (10.000 remuestreos).
 que resulte de la regla. Aparte, sin mezclarlas, la tasa familiar con Holm y
 las tasas de 6 y 13 anos. El codigo es `regla_alfa_principal` y
 `aplicar_regla_alfa` en `experimentos/control_positivo.py`, con tests.
+
+### Resultados de la corrida larga
+
+Datos en `resultados/control_positivo.md`, `control_positivo.csv`,
+`control_positivo_b.csv` y `control_positivo_potencia.png` (no se versionan).
+
+- 27,3 minutos contra 32 estimados, sin recorte.
+- Mercados: 4 anos x 200, 6 anos x 100, 13 anos x 30 y B x 10.
+- 500 repeticiones de la nula y de Romano-Wolf.
+
+**1. La regla fijo `ALFA_PRINCIPAL = 0,025`.** Tasa por prueba en delta = 0, 4
+anos, 1.200 pruebas en 200 mercados:
+
+| alfa | tasa | IC95 por mercados |
+|---|---|---|
+| 0,05 | 7,4% | 5,5%-9,4% (entero sobre 5%: exceso demostrado) |
+| 0,025 | 4,25% | 2,8%-5,8% (el borde inferior no pasa de 5%) |
+
+- Con 0,025, el tamano real por prueba cumple el objetivo del 5%.
+- Coincide con el punto D: 7,7% con IC 4,3%-11,7% en 50 mercados. Ahora, con
+  cuatro veces mas mercados, el exceso con 0,05 queda demostrado.
+- `config.py` ya dice 0,025. La regla del control negativo
+  (`--alfa-principal`) queda como historica.
+
+**2. Potencia por familia con Holm y alfa 0,025 (principal).** Efecto minimo
+detectable al 80%, con IC95 por mercados:
+
+| duracion | efecto minimo | IC95 | con alfa 0,05 (descripcion) |
+|---|---|---|---|
+| 4 anos | 0,050 | [0,046; 0,054] | 0,043 |
+| 6 anos | 0,041 | [0,038; 0,043] | 0,035 |
+| 13 anos | 0,028 | [0,024; 0,035] | 0,026 |
+
+Por celda, 4 anos:
+- reingresos: 0,067-0,069;
+- sostenidas: 0,085-0,090.
+
+Las sostenidas necesitan mas efecto: su retorno es mas ruidoso (error de su
+media mayor).
+
+**3. Sesgo del estimador (observado menos nulo).**
+- 4 y 6 anos: todas las celdas entre -0,0015 y +0,0034, con error de Monte
+  Carlo de 0,0014-0,0027. Ninguna se distingue de cero con claridad.
+- 13 anos, sostenidas: de -0,004 a -0,007 (error ~0,003). Es la unica zona a
+  unos 2 errores de cero, con solo 30 mercados; se reporta y no se interpreta.
+- En D el sesgo no depende de delta: variacion maxima de 3e-17.
+
+**4. Tasas en delta = 0, cada una por separado** (no se mezclan entre si ni con
+el punto D):
+
+| duracion | por prueba, alfa 0,05 | por prueba, alfa 0,025 | familiar Holm, alfa 0,05 | familiar Holm, alfa 0,025 |
+|---|---|---|---|---|
+| 4 anos | (la de la regla) | (la de la regla) | 9,5% [6,2%-14,4%] | 3,5% [1,7%-7,0%] |
+| 6 anos | 4,3% | 1,5% | 2,0% | 1,0% |
+| 13 anos | 6,7% [2,8%-11,7%] | 4,4% | 13,3% [5,3%-29,7%] | 6,7% [1,8%-21,3%] |
+
+- La tasa familiar con 0,05 y 4 anos (9,5%) pasa de 5%: es otra razon para el
+  alfa estricto, aunque la regla decide con la tasa por prueba.
+
+**5. Costos (aproximacion).** En 4 anos, medio pip de ida y vuelta vale 0,03 a
+0,09 unidades segun el horizonte, del mismo orden que el efecto minimo
+detectable. El efecto minimo neto aproximado va de ~0,10 (reingreso a fin de
+franja, 0,5 pip) a ~0,44 (sostenida a 30 minutos, 2 pips).
+
+**6. Control B (descriptivo)**: 10 mercados de 4 anos, error de Monte Carlo
+<= 0,0005, todos convergieron (mediana de 4 a 7 iteraciones, maximo 12).
+Delta realizado / nominal por evento:
+
+| escenario | sostenida | reingreso |
+|---|---|---|
+| ambos | 0,72 (30) / 0,60 (60) / 0,39 (fin) | 0,86 / 0,82 / 0,79 |
+| solo sostenidas | 0,99 / 0,99 / 1,00 | **-0,14 / -0,17 / -0,21** (contagio) |
+| solo reingresos | **-0,29 / -0,41 / -0,63** (contagio) | 0,99 / 0,99 / 1,00 |
+
+- Cuando solo un tipo tiene efecto, casi todo el delta llega a su celda.
+- El contagio va en CONTRA de la hipotesis de la otra celda y es proporcional a
+  delta: la razon es la misma con 0,05 y 0,10.
+- Los efectos se suman: ambos ~ solo + contagio (sostenida a fin de franja:
+  1,00 - 0,63 = 0,37, contra 0,39 medido).
+- El contagio mas fuerte es el de un reingreso sobre la sostenida anterior de
+  la misma franja: sostenida a fin de franja pierde el 63% del delta. Es la
+  superposicion ya anotada para el punto F (el 71-73% de las sostenidas
+  reingresa despues).
+- Lectura aproximada (potencia de D en el delta realizado, 4 anos, alfa 0,025),
+  con los dos tipos a la vez y delta = 0,10:
+  - reingresos: ~0,95;
+  - sostenidas: 0,63 (30 minutos), 0,39 (60) y 0,15 (fin de franja).
+
+**Para el punto F**: si H1 y H2 fueran ciertas a la vez, la sostenida a fin de
+franja perderia buena parte de su potencia por el contagio del reingreso. Es
+una pregunta sobre como se define H1; no se cambia nada.

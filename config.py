@@ -112,7 +112,7 @@ PRINCIPAL_ESTUDENTIZADO = True               # True = el estadistico de H1 y H2 
 # =============================================================================
 ALFA = 0.05                                  # nivel de significancia de moderadores (H3) y H4, que estan calibradas
 ALFA_ESTRICTO = 0.025                        # la alternativa que la regla del punto E puede elegir para la familia principal
-ALFA_PRINCIPAL = 0.05                        # nivel de la familia principal (H1 y H2); lo fija la regla del punto E, 2a parte: delta = 0 del bloque de 4 anos del control positivo (ver bitacora)
+ALFA_PRINCIPAL = 0.025                       # nivel de la familia principal (H1 y H2); lo fijo la regla del punto E, 2a parte: delta = 0 del bloque de 4 anos del control positivo (tasa por prueba 7,4% [5,5%-9,4%] con 0,05; ver bitacora)
 REMUESTREOS_IC_MERCADOS = 10000              # remuestreos de MERCADOS para el intervalo de una tasa por prueba
 
 # Holm sobre los p-valores de la nula emparejada, fijado en el punto E SIN mirar
