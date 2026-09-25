@@ -1969,3 +1969,5 @@ python -m experimentos.diagnostico_tamano               diagnostico del tamano d
 
 (Los CSV de `resultados/` no se versionan: en una maquina nueva hay que volver a
 correr `--piso`, `--piloto` y la curva, unos 30 minutos.)
+
+**Hash de cierre del punto E**: `e2854b8` (`punto E (cierre): diagnostico del tamano, efecto minimo por celda en pips y traspaso a F`).
