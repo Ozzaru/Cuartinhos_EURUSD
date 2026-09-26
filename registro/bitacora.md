@@ -2112,3 +2112,5 @@ Cada corrida por separado quedo bajo la hora; no se hizo piloto.
 
 Revision del borrador por el grupo. Con su OK explicito: paso 3 (correcciones,
 PDF, etiqueta `prerregistro-v1`, push).
+
+**Hash del paso 2**: `599945e` (`punto F (paso 2): config sin marcas, variantes de robustez calibradas y borrador del pre-registro`). Sin push.
