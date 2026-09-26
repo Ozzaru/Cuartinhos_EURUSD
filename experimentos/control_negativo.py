@@ -416,6 +416,11 @@ def main():
                             help="guarda los resultados actuales como 'previo' para comparar")
     analizador.add_argument("--alfa-principal", action="store_true",
                             help="aplica la regla de ALFA_PRINCIPAL a los CSV guardados")
+    analizador.add_argument("--variante", choices=sorted(config.VARIANTES_CONTROL_NEGATIVO),
+                            default=None,
+                            help="corre una variante de robustez de VARIANTES_CONTROL_NEGATIVO; "
+                                 "escribe control_negativo_<variante>_* y no toca la corrida "
+                                 "principal")
     opciones = analizador.parse_args()
 
     if opciones.archivar:
@@ -428,7 +433,10 @@ def main():
         _rehacer_reporte()
         return
 
-    cambios = {}
+    cambios = dict(config.VARIANTES_CONTROL_NEGATIVO[opciones.variante]) \
+        if opciones.variante else {}
+    prefijo = f"control_negativo_{opciones.variante}" if opciones.variante \
+        else "control_negativo"
     repeticiones = opciones.repeticiones or config.NULA_REPETICIONES
     con_rw = not opciones.sin_romano_wolf
     n_cortos = opciones.cortos or config.MERCADOS_CONTROL_NEGATIVO
@@ -461,8 +469,8 @@ def main():
 
     minutos = (time.perf_counter() - comienzo) / 60
     guardar(pruebas, rupturas, h4, conteos, minutos, n_cortos, opciones.largos,
-            anios_largos, repeticiones, con_rw)
-    print(f"\nListo en {minutos:.1f} minutos. Reportes en resultados/")
+            anios_largos, repeticiones, con_rw, cambios=cambios, prefijo=prefijo)
+    print(f"\nListo en {minutos:.1f} minutos. Reportes en resultados/{prefijo}*")
 
 
 def _alfa_principal():
@@ -628,29 +636,36 @@ def _rehacer_reporte():
 
 
 def guardar(pruebas, rupturas, h4, conteos, minutos, n_cortos, n_largos,
-            anios_largos, repeticiones, con_rw):
-    """Escribe el CSV, el markdown y el grafico."""
-    cfg = config.copia()
+            anios_largos, repeticiones, con_rw, cambios=None, prefijo="control_negativo"):
+    """
+    Escribe el CSV, el markdown y el grafico.
+
+    Una variante de robustez (`cambios`) escribe con otro `prefijo`, para no
+    pisar la corrida principal, que es la que leen la regla del alfa y el
+    diagnostico del tamano.
+    """
+    cambios = cambios or {}
+    cfg = config.copia(**cambios)
+    ruta = lambda sufijo: os.path.join(CARPETA, f"{prefijo}{sufijo}")  # noqa: E731
     columnas = ["mercado", "anios", "familia", "tipo", "horizonte", "coeficiente",
                 "efecto", "estimacion", "t", "p_bruto", "p_holm", "p_romano_wolf",
                 "p_corregido", "rechaza", "n", "n_eventos"]
-    pruebas[columnas].to_csv(os.path.join(CARPETA, "control_negativo.csv"),
-                             index=False, float_format="%.6g")
-    h4.to_csv(os.path.join(CARPETA, "control_negativo_h4.csv"), index=False,
-              float_format="%.6g")
-    rupturas.to_csv(os.path.join(CARPETA, "control_negativo_rupturas.csv"),
-                    index=False, float_format="%.6g")
-    conteos.to_csv(os.path.join(CARPETA, "control_negativo_conteos.csv"),
-                   index=False, float_format="%.6g")
+    pruebas[columnas].to_csv(ruta(".csv"), index=False, float_format="%.6g")
+    h4.to_csv(ruta("_h4.csv"), index=False, float_format="%.6g")
+    rupturas.to_csv(ruta("_rupturas.csv"), index=False, float_format="%.6g")
+    conteos.to_csv(ruta("_conteos.csv"), index=False, float_format="%.6g")
     pd.DataFrame([{"minutos": minutos, "n_cortos": n_cortos, "n_largos": n_largos,
                    "anios_largos": anios_largos, "repeticiones": repeticiones,
-                   "con_rw": con_rw}]).to_csv(
-        os.path.join(CARPETA, "control_negativo_meta.csv"), index=False)
-    grafico_p_valores(pruebas, os.path.join(CARPETA, "control_negativo_pvalores.png"))
+                   "con_rw": con_rw}]).to_csv(ruta("_meta.csv"), index=False)
+    grafico_p_valores(pruebas, ruta("_pvalores.png"))
 
-    with open(os.path.join(CARPETA, "control_negativo.md"), "w", encoding="utf-8") as f:
-        f.write(_markdown(pruebas, rupturas, h4, conteos, cfg, minutos, n_cortos,
-                          n_largos, anios_largos, repeticiones, con_rw))
+    texto = _markdown(pruebas, rupturas, h4, conteos, cfg, minutos, n_cortos,
+                      n_largos, anios_largos, repeticiones, con_rw)
+    if cambios:
+        texto = (f"> **Variante de robustez**: {cambios}. Mismas semillas que la corrida "
+                 "principal.\n\n" + texto)
+    with open(ruta(".md"), "w", encoding="utf-8") as f:
+        f.write(texto)
 
 
 def _markdown(pruebas, rupturas, h4, conteos, cfg, minutos, n_cortos, n_largos,

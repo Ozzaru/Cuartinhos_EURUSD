@@ -2040,3 +2040,75 @@ Esperar las decisiones del grupo sobre la tabla (en especial la seccion e, H4)
 antes del paso 2.
 
 **Hash del paso 1**: `ecb01fb` (`punto F (paso 1): tabla de decisiones, potencia de H3 y H4 y anexo de sensibilidad`). Sin push.
+
+---
+
+## Punto F, paso 2 — Borrador del pre-registro
+
+- **Fecha**: 2026-09-25
+- **Documento**: `registro/prerregistro.md` (borrador para la revision del
+  grupo; se congela en el paso 3 con la etiqueta `prerregistro-v1`).
+- **Decisiones del grupo sobre el paso 1**: al final de
+  `registro/decisiones_F.md`.
+- **Sin push.**
+
+### Que se hizo
+
+- `config.py` **sin ninguna marca POR DECIDIR**: se mantienen los 20 valores.
+  - `HORIZONTE_PRINCIPAL` se elimino, con su linea de test.
+  - `FOMC_POR_ANIO`, sin uso, se borro.
+  - Nuevos: `COMISION_USD_POR_MILLON_LADO = 35`, `COMISIONES_SENSIBILIDAD =
+    [0, 70]` y `LATENCIA_VELAS = 1`.
+  - `COSTOS_IDA_VUELTA_PIPS` queda como grilla de lectura.
+  - `NW_REZAGOS_FACTOR` y `NW_REZAGOS_EXPONENTE`: la regla de Newey y West
+    (1994) para el contraste, que no estaba fijada en ningun lado.
+  - `VARIANTES_CONTROL_NEGATIVO`: las variantes de robustez que el control
+    negativo corre cambiando solo config.
+  - Comentarios: H3 confirmatoria a dos colas con direccion esperada; H4
+    secundaria.
+  - Test nuevo: ninguna linea de config puede quedar marcada POR DECIDIR.
+- **Ningun valor cambio respecto de D y E**, asi que no hubo que volver a
+  correr ningun control: los numeros de D, E y del paso 1 siguen valiendo.
+- `inferencia.rezagos_newey_west` y `nula.ic_h4` (IC de H4 por inversion de la
+  prueba de aleatorizacion), con tests.
+- `control_negativo --variante NOMBRE`: corre una variante y escribe
+  `control_negativo_<variante>_*`, sin pisar la corrida principal (que leen la
+  regla del alfa y el diagnostico).
+- `diagnostico_tamano`: nueva seccion 4, el tamano de las variantes al lado de
+  la corrida principal.
+- **Tests**: 244 pasan, 0 fallan, 0 avisos (con el `.venv`).
+
+### Control negativo de las variantes de robustez (pedido g)
+
+Mismas semillas que el punto D. 25,2 min ("vol") y 23,6 min (UTC), con 2
+procesos en el bloque corto y 1 en el largo por la poca memoria libre (2-3 GB).
+Cada corrida por separado quedo bajo la hora; no se hizo piloto.
+
+| corrida | principal, 0,05 | principal, 0,025 | familiar Holm, 0,025 | moderadores, por prueba | moderadores, familiar | H4 ventana |
+|---|---|---|---|---|---|---|
+| principal (D) | 7,7% [4,3; 11,7] | 4,0% [2,0; 6,0] | 8% | 4,8% | 0% | 7,5% |
+| umbral "vol" | 7,0% [4,3; 10,0] | 4,0% [2,0; 6,3] | 4% | 4,4% | 2% | 8,3% |
+| particion UTC | 6,7% [4,0; 9,7] | 3,3% [1,3; 5,7] | 2% | 5,0% | **10%** [4,3; 21,4] | 4,2% |
+
+- **Nada falla de forma demostrada.** Se declaran dos cosas y **no se ajusto
+  nada**:
+  - con la particion UTC, la familia de moderadores rechaza en 5 de 50
+    mercados (el IC de Wilson contiene el 5%);
+  - con "vol", la asimetria de la cola de la hipotesis contra la opuesta sale
+    distinta de cero con 0,05 (+5,0 [+0,7; +9,0]), en los mismos 50 mercados
+    que en la corrida principal daban +4,0 [-0,7; +8,7].
+- **La particion UTC se pudo correr cambiando solo `ZONA`**, pero el simulador
+  ancla su perfil horario y su regimen diario a `ZONA`. Por eso el mercado
+  simulado de esa variante sigue el reloj UTC, y el control no mide el desfase
+  de una hora que el horario de verano produce contra un mercado anclado a
+  Londres. Queda declarado en el pre-registro. Si el grupo quiere el control
+  mas fiel, hay que separar la zona del simulador (un parametro nuevo de
+  simulacion) y volver a correr (~25 min).
+- Otro numero que faltaba declarar, del punto D recalculado sobre las 6 pruebas
+  confirmatorias: la tasa familiar de Holm con 0,025 en 3 anos es 8% (4 de 50).
+  Va al pre-registro, seccion 6.3.
+
+### Siguiente
+
+Revision del borrador por el grupo. Con su OK explicito: paso 3 (correcciones,
+PDF, etiqueta `prerregistro-v1`, push).

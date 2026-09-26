@@ -432,3 +432,27 @@ de las sostenidas.
    - `nula.correr_h4(..., con_distribuciones=True)`, que devuelve los t nulos;
    - `experimentos/potencia_moderadores.py` (partes c y d) y
      `experimentos/anexo_sensibilidad.py` (pendiente del punto B), con sus tests.
+
+---
+
+## Lo que decidió el grupo (25-09-2026, antes del paso 2)
+
+- **a)** Se mantienen los 20 valores y se quitan todas las marcas.
+  - `HORIZONTE_PRINCIPAL` se elimina, con su test.
+  - `COMISION_USD_POR_MILLON_LADO = 35` (coherente con que los precios son de Dukascopy) y `LATENCIA_VELAS = 1`.
+  - Sensibilidad pre-declarada: comisión de 0 y de 70.
+- **b)** Se aprueban b.1 a b.6, con dos precisiones:
+  - b.3: la lectura de validación que hace el control de calidad también se anota en `registro/aperturas.md`, como "lectura de calidad", distinta de la apertura.
+  - b.4: la réplica con HistData usa bid; el análisis principal usa el precio medio de Dukascopy.
+- **c-e)** H4 pasa a **análisis secundario pre-especificado, no confirmatorio**: se corre igual en cada tramo y se reporta con estimación, IC y p-valor, pero no confirma nada. Lo confirmatorio queda en H1, H2 y H3; H3 sigue confirmatoria, con su potencia declarada (0,15-0,32).
+- **f)** Redacciones:
+  - H3: dirección esperada la de la propuesta, prueba a dos colas; un efecto en sentido contrario se reporta como tal.
+  - H4: se operacionaliza como la diferencia; las dos mitades de la propuesta no se prueban por separado.
+- **g)** Se corre el control negativo con `UMBRAL_MODO = "vol"` y, si se puede cambiando solo `ZONA`, con la partición UTC. Si algo falla, se declara y no se ajusta nada.
+
+Aplicado en el paso 2 (ver la bitácora). Además, dos piezas que el pre-registro necesitaba especificadas en código:
+
+- la regla de rezagos de Newey-West, piso(4 · (n/100)^(2/9)) (Newey y West, 1994);
+- el IC de H4 por inversión de la prueba de aleatorización.
+
+`FOMC_POR_ANIO`, sin uso, se borró.

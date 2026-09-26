@@ -5,12 +5,15 @@ CONFIGURACION UNICA del proyecto.
 Aqui vive TODO parametro que pueda cambiar un resultado. Ningun otro archivo
 puede inventar un numero: si un modulo necesita un valor, lo lee de aqui.
 
-Marcas usadas en los comentarios:
-  # POR DECIDIR            -> valor provisional; el grupo debe fijarlo antes
-                              de pre-registrar.
+Marca usada en los comentarios:
   # PARAMETRO DE SIMULACION -> solo afecta al mercado artificial de pruebas;
                               NO se pre-registra (los resultados se normalizan
                               por sigma_ref, asi que la escala no importa).
+
+Todo lo demas quedo fijado en el punto F y va al pre-registro
+(registro/prerregistro.md). Hasta el punto E habia una segunda marca, POR
+DECIDIR, para los valores provisionales: el grupo los fijo todos en el punto F
+(registro/decisiones_F.md) y la marca ya no se usa.
 """
 
 from types import SimpleNamespace
@@ -48,20 +51,20 @@ LIMITES_HORAS = [0, 6, 12, 18, 24]           # cortes de las 4 franjas de 6 hora
 #  3. DATOS Y COBERTURA
 # =============================================================================
 PIP = 0.0001                                 # tamano de un pip en EUR/USD
-COBERTURA_MIN_REFERENCIA = 0.90              # minutos presentes / esperados exigidos a la franja de REFERENCIA  # POR DECIDIR
+COBERTURA_MIN_REFERENCIA = 0.90              # minutos presentes / esperados exigidos a la franja de REFERENCIA
 HUECO_CIERRE_MIN = 60                        # hueco de datos (minutos) a partir del cual se considera mercado cerrado
 REFERENCIA_CRUZA_CIERRE = False              # False = si entre la franja k-1 y la k hay un cierre, la franja k no genera eventos
 
 # =============================================================================
 #  4. DETECCION DE EVENTOS
 # =============================================================================
-UMBRAL_MODO = "pips"                         # "pips" (principal) o "vol" (robustez: umbral proporcional a la volatilidad)  # POR DECIDIR
-UMBRAL_PIPS = 1.0                            # penetracion minima del extremo, en pips, si UMBRAL_MODO == "pips"  # POR DECIDIR
-UMBRAL_VOL = 1.0                             # umbral_precio = UMBRAL_VOL * sigma_ref * extremo_referencia, si UMBRAL_MODO == "vol"  # POR DECIDIR
+UMBRAL_MODO = "pips"                         # "pips" (principal) o "vol" (robustez: umbral proporcional a la volatilidad)
+UMBRAL_PIPS = 1.0                            # penetracion minima del extremo, en pips, si UMBRAL_MODO == "pips"
+UMBRAL_VOL = 1.0                             # umbral_precio = UMBRAL_VOL * sigma_ref * extremo_referencia, si UMBRAL_MODO == "vol"
 
-M_SOSTENIDA_MIN = 15                         # minutos que debe aguantar la ruptura para considerarse sostenida  # POR DECIDIR
-REGLA_SOSTENIDA = "sin_reingreso"            # "sin_reingreso" (ninguna barra vuelve dentro en (t, t+M]) o "fuera_en_t_mas_m" (solo se mira t+M)  # POR DECIDIR
-VENTANA_REINGRESO_MIN = None                 # minutos maximos para buscar el reingreso; None = hasta el fin de la franja  # POR DECIDIR
+M_SOSTENIDA_MIN = 15                         # minutos que debe aguantar la ruptura para considerarse sostenida
+REGLA_SOSTENIDA = "sin_reingreso"            # "sin_reingreso" (ninguna barra vuelve dentro en (t, t+M]) o "fuera_en_t_mas_m" (solo se mira t+M)
+VENTANA_REINGRESO_MIN = None                 # minutos maximos para buscar el reingreso; None = hasta el fin de la franja
 EXCLUIR_BARRA_AMBIGUA = True                 # True = si una misma barra rompe los dos lados, esa franja no genera eventos
 
 TIPOS_EVENTO = ("ruptura", "sostenida", "reingreso")   # tipos de evento que produce el motor
@@ -71,11 +74,10 @@ TIPOS_EVENTO = ("ruptura", "sostenida", "reingreso")   # tipos de evento que pro
 # =============================================================================
 HORIZONTES_MIN = [30, 60, 120]               # horizontes fijos en minutos para medir el retorno posterior
 INCLUIR_FIN_FRANJA = True                    # True = agrega el horizonte variable "hasta el fin de la franja del evento"
-HORIZONTE_PRINCIPAL = 60                     # horizonte unico al que se podria reducir la familia principal  # POR DECIDIR
 
 DIAS_VOL_REF = 20                            # dias pasados validos usados para estimar sigma_ref (volatilidad de referencia)
-DIAS_VOL_REF_MIN = 10                        # dias validos minimos; con menos, sigma_ref = NaN y el evento se descarta  # POR DECIDIR
-TOLERANCIA_PRECIO_MIN = 2                    # si falta la barra que cierra en t, se acepta la ultima cerrada hasta 2 minutos antes  # POR DECIDIR
+DIAS_VOL_REF_MIN = 10                        # dias validos minimos; con menos, sigma_ref = NaN y el evento se descarta
+TOLERANCIA_PRECIO_MIN = 2                    # si falta la barra que cierra en t, se acepta la ultima cerrada hasta 2 minutos antes
 
 # Lista de horizontes tal como la usan resultados.py, nula.py e inferencia.py.
 HORIZONTES = list(HORIZONTES_MIN) + (["fin_franja"] if INCLUIR_FIN_FRANJA else [])
@@ -83,14 +85,14 @@ HORIZONTES = list(HORIZONTES_MIN) + (["fin_franja"] if INCLUIR_FIN_FRANJA else [
 # =============================================================================
 #  6. MODERADORES (H3 y H4)
 # =============================================================================
-PASO_REDONDO = 0.0050                        # rejilla de numeros redondos (0.0050 = terminaciones 00 y 50)  # POR DECIDIR
-RADIO_REDONDO_PIPS = 5                       # distancia maxima, en pips, para considerar el extremo "cerca de un numero redondo"  # POR DECIDIR
-RADIO_EXTREMO_PREVIO_PIPS = 3                # distancia maxima, en pips, al extremo del dia de Londres anterior  # POR DECIDIR
-DIA_PREVIO_MIN_COBERTURA = 0.50              # cobertura minima del dia de Londres anterior para que sus extremos cuenten  # POR DECIDIR
+PASO_REDONDO = 0.0050                        # rejilla de numeros redondos (0.0050 = terminaciones 00 y 50)
+RADIO_REDONDO_PIPS = 5                       # distancia maxima, en pips, para considerar el extremo "cerca de un numero redondo"
+RADIO_EXTREMO_PREVIO_PIPS = 3                # distancia maxima, en pips, al extremo del dia de Londres anterior
+DIA_PREVIO_MIN_COBERTURA = 0.50              # cobertura minima del dia de Londres anterior para que sus extremos cuenten
 DIAS_COMPRESION = 20                         # dias pasados validos para la mediana del rango del mismo tipo de franja
-DIAS_COMPRESION_MIN = 10                     # dias validos minimos; con menos, ratio_compresion = NaN  # POR DECIDIR
-CORTE_COMPRESION = 0.75                      # ratio por debajo del cual la franja de referencia se considera comprimida  # POR DECIDIR
-VENTANA_NOTICIAS_MIN = 60                    # minutos previos al evento en los que un anuncio macro cuenta como "noticia"  # POR DECIDIR
+DIAS_COMPRESION_MIN = 10                     # dias validos minimos; con menos, ratio_compresion = NaN
+CORTE_COMPRESION = 0.75                      # ratio por debajo del cual la franja de referencia se considera comprimida
+VENTANA_NOTICIAS_MIN = 60                    # minutos previos al evento en los que un anuncio macro cuenta como "noticia"
 NOTICIA_MODO = "ventana"                     # "ventana" (principal) o "franja" (robustez: toda la franja con anuncio cuenta como tratada)
 
 MODERADORES = ["cerca_redondo", "cerca_extremo_previo", "comprimida", "noticia"]  # regresores de la regresion
@@ -102,15 +104,15 @@ MODERADORES_PROBADOS = ["cerca_redondo", "cerca_extremo_previo", "comprimida"]  
 NULA_REPETICIONES = 1000                     # repeticiones de la nula en las corridas normales
 NULA_REPETICIONES_POTENCIA = 500             # repeticiones en el control positivo (mas rapido; se reporta el error de Monte Carlo)
 NULA_DECILES_VOL = 10                        # grupos de volatilidad de referencia (20 dias) usados para emparejar
-NULA_GRUPOS_VOL_RECIENTE = 3                 # grupos de volatilidad de los ultimos minutos usados para emparejar  # POR DECIDIR
-VENTANA_VOL_RECIENTE_MIN = 60                # minutos previos con los que se mide la volatilidad reciente  # POR DECIDIR
+NULA_GRUPOS_VOL_RECIENTE = 3                 # grupos de volatilidad de los ultimos minutos usados para emparejar
+VENTANA_VOL_RECIENTE_MIN = 60                # minutos previos con los que se mide la volatilidad reciente
 MIN_BARRAS_VOL_RECIENTE = 30                 # barras minimas en esa ventana; con menos, el minuto va al grupo "sin dato"
 PRINCIPAL_ESTUDENTIZADO = True               # True = el estadistico de H1 y H2 es el t de la media, no la media cruda
 
 # =============================================================================
 #  8. INFERENCIA Y PRUEBAS MULTIPLES
 # =============================================================================
-ALFA = 0.05                                  # nivel de significancia de moderadores (H3) y H4, que estan calibradas
+ALFA = 0.05                                  # nivel de la familia de moderadores (H3, calibrada) y del analisis secundario de H4
 ALFA_ESTRICTO = 0.025                        # la alternativa que la regla del punto E puede elegir para la familia principal
 ALFA_PRINCIPAL = 0.025                       # nivel de la familia principal (H1 y H2); lo fijo la regla del punto E, 2a parte: delta = 0 del bloque de 4 anos del control positivo (tasa por prueba 7,4% [5,5%-9,4%] con 0,05; ver bitacora)
 REMUESTREOS_IC_MERCADOS = 10000              # remuestreos de MERCADOS para el intervalo de una tasa por prueba
@@ -123,6 +125,10 @@ REMUESTREOS_IC_MERCADOS = 10000              # remuestreos de MERCADOS para el i
 CORRECCION_PRINCIPAL = "holm"
 REPORTAR_AMBAS_CORRECCIONES = True           # True = toda tabla trae Holm y, como prueba secundaria, Romano-Wolf
 TIPO_ERRORES = "cluster"                     # "cluster" (agrupado por fecha de Londres) o "HAC" (Newey-West)
+# Newey-West, solo como contraste de H3: rezagos = piso(FACTOR * (n / 100) ** EXPONENTE),
+# la regla de Newey y West (1994), con n = eventos de la celda en orden de tiempo.
+NW_REZAGOS_FACTOR = 4
+NW_REZAGOS_EXPONENTE = 2 / 9
 RW_REPETICIONES = 1000                       # remuestreos de dias del bootstrap de Romano-Wolf
 
 # Horizontes que se REPORTAN pero no confirman nada. El de 120 minutos salio de
@@ -139,9 +145,13 @@ FAMILIA_PRINCIPAL = (
     + [("reingreso", h, "media", "menor") for h in HORIZONTES_CONFIRMATORIOS]
 )
 
-# Familia MODERADORES: H3. Cada prueba es (tipo, horizonte, coeficiente, cola).
-#   Dos colas: el signo del efecto moderador no se pre-especifica.
-#   `noticia` NO esta aqui: se estima como control pero se prueba en FAMILIA_H4.
+# Familia MODERADORES: H3, confirmatoria. Cada prueba es (tipo, horizonte,
+# coeficiente, cola).
+#   La direccion esperada es la de la propuesta (los efectos se intensifican),
+#   pero la prueba es a dos colas, que es la que se calibro; un efecto
+#   significativo en sentido contrario se reporta como tal.
+#   `noticia` NO esta aqui: se estima como control; los anuncios se miden en
+#   FAMILIA_H4.
 FAMILIA_MODERADORES = [
     (tipo, h, mod, "dos")
     for tipo in ("sostenida", "reingreso")
@@ -149,20 +159,34 @@ FAMILIA_MODERADORES = [
     for mod in MODERADORES_PROBADOS
 ]
 
-# Familia H4: el efecto de los anuncios macro, medido por inferencia de
-# aleatorizacion y no por un coeficiente de la regresion (ver motor/nula.py).
-#   Una cola "mayor": H4 predice MAS continuacion cuando hay anuncio.
+# H4: el efecto de los anuncios macro, medido por inferencia de aleatorizacion
+# y no por un coeficiente de la regresion (ver motor/nula.py). Desde el punto F
+# es un analisis SECUNDARIO pre-especificado: se corre igual en cada tramo y se
+# reporta con estimacion, IC y p-valor, pero NO confirma nada. Con 4 anos no
+# esta calibrada (10,8% por prueba con alfa 0,05, exceso simetrico) ni tiene
+# potencia (ver registro/decisiones_F.md).
+#   Una cola "mayor": H4 se operacionaliza como la diferencia, MAS
+#   continuacion con anuncio que sin el.
 FAMILIA_H4 = [
     (tipo, h, "dif_noticia", "mayor")
     for tipo in ("sostenida", "reingreso")
     for h in HORIZONTES
 ]
-MIN_DIAS_TRATADOS = 15                       # dias distintos con evento "con anuncio" para que la prueba de H4 entre a la familia (confirmado en el punto E)
+MIN_DIAS_TRATADOS = 15                       # dias distintos con evento "con anuncio" para que la prueba de H4 tenga p-valor; con menos, solo estimacion
 H4_ESTUDENTIZADO = True                      # True = el estadistico principal es el t; la version sin estudentizar se reporta como comparacion
 
 # "ruptura" queda como tipo DESCRIPTIVO: se reporta a dos colas, fuera de las
 # familias corregidas, porque no corresponde a ninguna hipotesis direccional.
 TIPOS_DESCRIPTIVOS = ("ruptura",)
+
+# =============================================================================
+#  8b. COSTOS DE EJECUCION (criterio de paso a la Etapa 4 y H5)
+#      El efecto neto se calcula evento por evento con el bid/ask observado de
+#      Dukascopy, esta comision y una vela de latencia en la entrada.
+# =============================================================================
+COMISION_USD_POR_MILLON_LADO = 35            # tarifa publicada de Dukascopy, tramo mas bajo, cobrada al abrir y al cerrar (0,70 pb ida y vuelta)
+COMISIONES_SENSIBILIDAD = [0, 70]            # comisiones (USD por millon por lado) con que se repite el efecto neto, como sensibilidad declarada
+LATENCIA_VELAS = 1                           # velas entre la senal (cierre de la barra del evento) y la entrada
 
 # =============================================================================
 #  9. ALEATORIEDAD
@@ -231,6 +255,15 @@ SENSIBILIDAD_M = [5, 15, 30]
 MERCADOS_SENSIBILIDAD = 5
 ANIOS_SENSIBILIDAD = 4
 
+# Variantes de robustez que el control negativo puede correr cambiando solo
+# config (punto F): `python -m experimentos.control_negativo --variante NOMBRE`.
+# Ojo: el simulador tambien ancla su perfil horario a ZONA, asi que en
+# "particion_utc" el mercado simulado sigue el reloj UTC.
+VARIANTES_CONTROL_NEGATIVO = {
+    "umbral_vol": {"UMBRAL_MODO": "vol"},
+    "particion_utc": {"ZONA": "UTC"},
+}
+
 # El piso: el sesgo propio de los eventos, medido sin la nula en muchos mercados.
 MERCADOS_PISO = 200                          # mercados sin ningun patron para medir el piso con precision
 ANIOS_PISO = 3                               # duracion de cada uno
@@ -240,7 +273,7 @@ ANIOS_PISO = 3                               # duracion de cada uno
 # reales.
 MERCADOS_UNIDADES = 20                       # mercados por volatilidad con los que se mide el factor pips / unidad
 VOLS_TRADUCCION = [0.05, 0.07, 0.10]         # volatilidades anuales con que se repite la traduccion  # PARAMETRO DE SIMULACION
-COSTOS_IDA_VUELTA_PIPS = [0.5, 1.0, 2.0]     # costos de ida y vuelta con que se lee la curva, en pips  # POR DECIDIR
+COSTOS_IDA_VUELTA_PIPS = [0.5, 1.0, 2.0]     # grilla de LECTURA de la curva de potencia contra un costo, en pips (el criterio de paso usa el costo medido evento por evento)
 
 VOL_ANUAL_SIMULACION = 0.07                  # volatilidad anual del mercado simulado  # PARAMETRO DE SIMULACION
 PRECIO_INICIAL = 1.10                        # precio medio inicial  # PARAMETRO DE SIMULACION
@@ -252,7 +285,6 @@ AR1_VOL_DIARIA = 0.95                        # persistencia del regimen de volat
 AR1_SIGMA_DIARIA = 0.15                      # desviacion del choque diario del regimen de volatilidad  # PARAMETRO DE SIMULACION
 NOTICIA_FACTOR_VOL = 3.0                     # multiplicador de volatilidad al momento del anuncio  # PARAMETRO DE SIMULACION
 NOTICIA_DURACION_MIN = 5                     # minutos que dura el efecto del anuncio  # PARAMETRO DE SIMULACION
-FOMC_POR_ANIO = 8                            # reuniones FOMC simuladas por ano  # PARAMETRO DE SIMULACION
 # Que anuncios trae el calendario simulado. El de los puntos D y E es el de
 # empleo, IPC y FOMC (32 al ano). El punto F agrega el BCE (8 al ano) para
 # medir con la frecuencia de la lista cerrada de anuncios del pre-registro; el

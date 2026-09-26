@@ -3,6 +3,9 @@
 Pruebas de humo de la configuracion: que el archivo cargue y que los valores
 que el resto del codigo da por sentados esten donde se espera.
 """
+import os
+import re
+
 import config as cfg
 
 
@@ -14,7 +17,22 @@ def test_franjas_son_cuatro_de_seis_horas():
 
 def test_horizontes_incluyen_fin_de_franja():
     assert cfg.HORIZONTES == cfg.HORIZONTES_MIN + ["fin_franja"]
-    assert cfg.HORIZONTE_PRINCIPAL in cfg.HORIZONTES_MIN
+
+
+def test_no_queda_ningun_parametro_por_decidir():
+    # El grupo fijo todos los valores en el punto F: ninguna linea de config
+    # puede seguir marcada como provisional.
+    ruta = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.py")
+    with open(ruta, encoding="utf-8") as f:
+        texto = f.read()
+    assert not re.search(r"#\s*POR DECIDIR", texto)
+    assert not hasattr(cfg, "HORIZONTE_PRINCIPAL"), "la familia principal no se reduce"
+
+
+def test_los_costos_de_ejecucion_estan_fijados():
+    assert cfg.COMISION_USD_POR_MILLON_LADO == 35
+    assert cfg.LATENCIA_VELAS == 1
+    assert cfg.COMISIONES_SENSIBILIDAD == [0, 70]
 
 
 def test_el_horizonte_de_120_es_descriptivo_y_no_confirma():

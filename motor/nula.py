@@ -439,6 +439,29 @@ def correr_h4(barras, cal, tabla_eventos, cfg, semilla, repeticiones=None,
     return pd.DataFrame(filas)
 
 
+def ic_h4(diferencia, error, t_nulas, confianza=0.95):
+    """
+    Intervalo de confianza de la diferencia de H4, invirtiendo la prueba de
+    aleatorizacion estudentizada.
+
+    Un valor delta0 queda dentro si (diferencia - delta0) / error cae entre los
+    cuantiles centrales de los t nulos. Despejando:
+
+        [diferencia - q_alto * error,  diferencia - q_bajo * error]
+
+    con q_bajo y q_alto los cuantiles (1 - confianza) / 2 y (1 + confianza) / 2
+    de los t nulos. Es el intervalo que acompana al p-valor del analisis
+    secundario de H4: sale de la misma nula, no de una formula normal que con
+    pocos dias tratados no vale.
+    """
+    t_nulas = np.asarray(t_nulas, dtype=float)
+    t_nulas = t_nulas[np.isfinite(t_nulas)]
+    if len(t_nulas) == 0 or not (np.isfinite(diferencia) and np.isfinite(error) and error > 0):
+        return np.nan, np.nan
+    q_bajo, q_alto = np.quantile(t_nulas, [(1 - confianza) / 2, (1 + confianza) / 2])
+    return float(diferencia - q_alto * error), float(diferencia - q_bajo * error)
+
+
 def _una_prueba_h4(rng, usables, claves, columna, tipo, h, ret_cand, pools,
                    pos_cand, dia_cand, repeticiones):
     """

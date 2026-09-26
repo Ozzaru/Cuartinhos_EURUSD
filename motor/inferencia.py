@@ -520,6 +520,19 @@ def analizar(eventos, cfg, familia, semilla, p_brutos=None, con_romano_wolf=Fals
     return tabla
 
 
+def rezagos_newey_west(n, cfg):
+    """
+    Rezagos del contraste de Newey-West, con la regla de Newey y West (1994):
+
+        piso(NW_REZAGOS_FACTOR * (n / 100) ** NW_REZAGOS_EXPONENTE)
+
+    con n los eventos de la celda, que `Celda` ya deja en orden de tiempo. Al
+    menos 1. Queda fijado antes de ver datos para que el contraste no se pueda
+    elegir despues.
+    """
+    return max(1, int(np.floor(cfg.NW_REZAGOS_FACTOR * (n / 100.0) ** cfg.NW_REZAGOS_EXPONENTE)))
+
+
 def con_newey_west(celda, coeficiente, rezagos):
     """
     Alternativa de robustez: errores de Newey-West (HAC) en vez de agrupados.

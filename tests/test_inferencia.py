@@ -163,3 +163,11 @@ def test_los_p_brutos_se_pueden_reemplazar_por_los_de_la_nula():
     esperado = 0.001 * len(cfg.FAMILIA_PRINCIPAL)
     assert np.allclose(tabla["p_holm"].to_numpy(float), esperado)
     assert tabla["rechaza"].all()
+
+
+def test_los_rezagos_de_newey_west_siguen_la_regla_de_1994():
+    cfg = ayuda.cfg_prueba()
+    assert inferencia.rezagos_newey_west(100, cfg) == 4
+    assert inferencia.rezagos_newey_west(1200, cfg) == 6     # 4 * 12 ** (2/9) = 6,95
+    assert inferencia.rezagos_newey_west(10, cfg) == 2       # 4 * 0,1 ** (2/9) = 2,40
+    assert inferencia.rezagos_newey_west(0, cfg) == 1

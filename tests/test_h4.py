@@ -249,3 +249,25 @@ def test_la_regresion_sigue_estimando_noticia_aunque_no_la_pruebe():
     celdas, _ = inferencia.construir_celdas(ev, cfg)
     alguna = next(c for (t, h, m), c in celdas.items() if m == "moderadores")
     assert "noticia" in alguna.nombres, "noticia tiene que seguir controlando la regresion"
+
+
+# --- intervalo de confianza del analisis secundario --------------------------
+
+def test_el_intervalo_de_h4_invierte_la_prueba_y_se_desplaza_con_la_diferencia():
+    rng = np.random.default_rng(4)
+    t_nulas = rng.standard_normal(200_000)
+    bajo, alto = nula.ic_h4(0.3, 0.1, t_nulas)
+    # Con una nula normal estandar es diferencia +- 1,96 * error.
+    assert bajo == pytest.approx(0.3 - 1.96 * 0.1, abs=2e-3)
+    assert alto == pytest.approx(0.3 + 1.96 * 0.1, abs=2e-3)
+    # Sumar una constante a la diferencia mueve el intervalo exactamente eso.
+    bajo2, alto2 = nula.ic_h4(0.8, 0.1, t_nulas)
+    assert (bajo2 - bajo, alto2 - alto) == pytest.approx((0.5, 0.5))
+    # En el borde del intervalo el p de dos colas por cuantiles es 1 - confianza.
+    t_borde = (0.3 - bajo) / 0.1
+    assert np.mean(t_nulas >= t_borde) == pytest.approx(0.025, abs=1e-3)
+
+
+def test_sin_nula_o_sin_error_no_hay_intervalo():
+    assert all(np.isnan(nula.ic_h4(0.3, 0.1, [])))
+    assert all(np.isnan(nula.ic_h4(0.3, np.nan, [0.0, 1.0])))

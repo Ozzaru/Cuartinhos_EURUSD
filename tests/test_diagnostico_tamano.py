@@ -49,3 +49,11 @@ def test_la_diferencia_entre_bloques_es_cero_si_los_bloques_son_iguales():
     ta, tb, dif, bajo, alto = dt.diferencia_entre_bloques(a, a.copy(), "p_bruto", 0.05, 500, 1)
     assert ta == tb and dif == 0
     assert bajo <= 0 <= alto
+
+
+def test_la_tasa_familiar_recalcula_holm_con_las_pruebas_que_recibe():
+    # Mercado 0: un p de 0,004 entre 6 pruebas -> Holm 0,024 <= 0,025, rechaza.
+    # Mercado 1: el mismo p entre 8 pruebas -> Holm 0,032, no rechaza a 0,025.
+    filas = [{"mercado": 0, "p_bruto": 0.004}] + [{"mercado": 0, "p_bruto": 0.9}] * 5
+    filas += [{"mercado": 1, "p_bruto": 0.004}] + [{"mercado": 1, "p_bruto": 0.9}] * 7
+    assert dt.tasa_familiar_holm(pd.DataFrame(filas), 0.025) == pytest.approx(0.5)

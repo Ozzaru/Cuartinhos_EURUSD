@@ -28,6 +28,11 @@ otras R - k + 1 nulas quedan del otro lado, y
 
 Se verifica que todos los p caigan en la grilla k / (R + 1).
 
+Si existen corridas de las variantes de robustez del control negativo
+(`--variante`, punto F), se agrega su tamano bajo la nula al lado del de la
+corrida principal, con las mismas semillas: familia principal (confirmatorias),
+moderadores (H3) y H4 (pruebas con MIN_DIAS_TRATADOS dias o mas).
+
     python -m experimentos.diagnostico_tamano
 """
 import os
@@ -39,7 +44,9 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import config                                              # noqa: E402
-from experimentos.control_negativo import CARPETA, _tabla   # noqa: E402
+from experimentos.control_negativo import (                # noqa: E402
+    CARPETA, _tabla, intervalo_binomial, tasa_por_prueba_ic)
+from motor.inferencia import holm                          # noqa: E402
 
 
 def p_cola_opuesta(p, repeticiones):
@@ -133,6 +140,76 @@ def diferencia_entre_bloques(a, b, columna, alfa, remuestreos, semilla):
         bajo, alto
 
 
+# =============================================================================
+#  Variantes de robustez (punto F)
+# =============================================================================
+def tasa_familiar_holm(pruebas, alfa):
+    """
+    Proporcion de mercados con al menos un rechazo de Holm, recalculando Holm
+    desde el p bruto con las pruebas que se le pasan (asi la corrida del punto
+    D, que traia el horizonte de 120 en la familia, se compara con la misma
+    familia de 6 pruebas).
+    """
+    minimos = [np.nanmin(holm(g["p_bruto"].to_numpy(float)))
+               if np.isfinite(g["p_bruto"].to_numpy(float)).any() else np.inf
+               for _, g in pruebas.groupby("mercado")]
+    return float(np.mean(np.asarray(minimos) <= alfa))
+
+
+def resumen_de_corrida(prefijo, cfg, remuestreos, semilla):
+    """
+    Tamano bajo la nula de una corrida del control negativo: una fila por
+    familia y alfa. None si la corrida no existe.
+    """
+    ruta = os.path.join(CARPETA, f"{prefijo}.csv")
+    if not os.path.exists(ruta):
+        return None
+    tabla = pd.read_csv(ruta)
+    tabla["horizonte"] = tabla["horizonte"].astype(str)
+    confirmatorios = {str(h) for h in cfg.HORIZONTES_CONFIRMATORIOS}
+    principal = tabla[(tabla["familia"] == "principal")
+                      & tabla["horizonte"].isin(confirmatorios)]
+    moderadores = tabla[tabla["familia"] == "moderadores"]
+    filas = []
+    for nombre, bloque, alfas in (("principal (H1, H2)", principal,
+                                   sorted({cfg.ALFA, cfg.ALFA_PRINCIPAL}, reverse=True)),
+                                  ("moderadores (H3)", moderadores, [cfg.ALFA])):
+        for alfa in alfas:
+            tasa, bajo, alto = tasa_por_prueba_ic(bloque, alfa, remuestreos, semilla)
+            familia = tasa_familiar_holm(bloque, alfa)
+            b_bajo, b_alto = intervalo_binomial(int(round(familia * bloque["mercado"].nunique())),
+                                                bloque["mercado"].nunique())
+            filas.append({"corrida": prefijo, "familia": nombre, "alfa": alfa,
+                          "mercados": bloque["mercado"].nunique(), "pruebas": len(bloque),
+                          "tasa_por_prueba": tasa, "ic95": f"[{bajo:.3f}, {alto:.3f}]",
+                          "familiar_holm": familia, "ic95_familiar": f"[{b_bajo:.3f}, {b_alto:.3f}]"})
+
+    ruta_h4 = os.path.join(CARPETA, f"{prefijo}_h4.csv")
+    if os.path.exists(ruta_h4):
+        h4 = pd.read_csv(ruta_h4)
+        h4 = h4[(h4["dias_tratados"] >= cfg.MIN_DIAS_TRATADOS) & h4["p_estudentizado"].notna()]
+        for modo, bloque in h4.groupby("modo"):
+            tasa, bajo, alto = tasa_por_prueba_ic(bloque, cfg.ALFA, remuestreos, semilla,
+                                                  columna="p_estudentizado")
+            filas.append({"corrida": prefijo, "familia": f"H4, modo {modo} (secundario)",
+                          "alfa": cfg.ALFA, "mercados": bloque["mercado"].nunique(),
+                          "pruebas": len(bloque), "tasa_por_prueba": tasa,
+                          "ic95": f"[{bajo:.3f}, {alto:.3f}]", "familiar_holm": np.nan,
+                          "ic95_familiar": ""})
+    return pd.DataFrame(filas)
+
+
+def tamano_de_variantes(cfg, remuestreos, semilla):
+    """La corrida principal y cada variante que exista, una debajo de la otra."""
+    prefijos = ["control_negativo"] + [f"control_negativo_{v}"
+                                       for v in cfg.VARIANTES_CONTROL_NEGATIVO]
+    partes = [resumen_de_corrida(p, cfg, remuestreos, semilla) for p in prefijos]
+    partes = [p for p in partes if p is not None]
+    if len(partes) <= 1:
+        return None
+    return pd.concat(partes, ignore_index=True)
+
+
 def main():
     cfg = config.copia()
     alfas = sorted({cfg.ALFA, cfg.ALFA_ESTRICTO}, reverse=True)
@@ -180,6 +257,16 @@ def main():
         "`p_medio` con su error de Monte Carlo entre mercados.\n",
         _tabla(celdas.round(4)),
     ]) + "\n"
+    variantes = tamano_de_variantes(cfg, remuestreos, semilla)
+    if variantes is not None:
+        texto += "\n".join([
+            "\n## 4. Variantes de robustez del control negativo (punto F)\n",
+            "Mismas semillas que la corrida principal (`control_negativo`, punto D). Familia "
+            "principal: solo las 6 confirmatorias, con Holm recalculado desde el p bruto. "
+            "`familiar_holm`: mercados con algun rechazo de Holm (IC de Wilson). H4: pruebas "
+            f"con {cfg.MIN_DIAS_TRATADOS} dias tratados o mas, p estudentizado.\n",
+            _tabla(variantes.round(4)),
+        ]) + "\n"
     with open(os.path.join(CARPETA, "diagnostico_tamano.md"), "w", encoding="utf-8") as f:
         f.write(texto)
     print(texto)
