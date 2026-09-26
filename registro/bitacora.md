@@ -2160,3 +2160,5 @@ PDF, etiqueta `prerregistro-v1`, push).
 
 **Tests**: 244 pasan, 0 fallan, 0 avisos (con el `.venv`). No cambio codigo en
 esta revision.
+
+**Hash de la revision del paso 2**: `6f5afad` (`punto F (paso 2, revision): pre-registro sin OSF, lectura de la pregunta 1 y Reality Check de White`). Sin push.
