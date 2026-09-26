@@ -1,23 +1,22 @@
 # Pre-registro — Cascada de stops o presión de liquidez: qué ocurre tras las rupturas de rangos intradía en EUR/USD
 
 - **Versión**: 1 (borrador para revisión del grupo; se congela con la etiqueta `prerregistro-v1`).
-- **Fecha de redacción**: 25 de septiembre de 2026. **Registro previsto en OSF**: martes 29 de septiembre de 2026.
-- **Repositorio**: https://github.com/Ozzaru/Cuartinhos_EURUSD. El registro en OSF cita el hash del commit con la etiqueta `prerregistro-v1`.
-- **Cómo está organizado**: cada sección indica, entre corchetes, el campo de la plantilla de pre-registro de OSF al que corresponde.
+- **Fecha de redacción**: 25 de septiembre de 2026. **Congelamiento previsto**: martes 29 de septiembre de 2026, con la etiqueta anotada `prerregistro-v1` en el repositorio público, antes de cualquier descarga de datos.
+- **Repositorio**: https://github.com/Ozzaru/Cuartinhos_EURUSD. La versión que vale es la del commit con la etiqueta `prerregistro-v1`.
 
 ---
 
 ## 1. Estudio
 
-### 1.1 Título [OSF: Title]
+### 1.1 Título
 
 Cascada de stops o presión de liquidez: qué ocurre tras las rupturas de rangos intradía en EUR/USD.
 
-### 1.2 Autores [OSF: Authors]
+### 1.2 Autores
 
 Joshua Barrientos, Joel Vásquez, José Ignacio Moreno, Francisco Piñeda y Santiago López. Magíster en Finanzas, mención Cuantitativa, Escuela de Negocios, Universidad Adolfo Ibáñez.
 
-### 1.3 Descripción y preguntas [OSF: Description; Research questions]
+### 1.3 Descripción y preguntas
 
 Entre los operadores intradía circula la idea de que el precio "barre" el extremo de un rango previo, activa las órdenes stop acumuladas detrás de ese nivel y enseguida se devuelve. El estudio traduce esa idea a reglas observables y la enfrenta a dos predicciones rivales de la microestructura: **continuación** por cascada de stops (Osler, 2003, 2005) y **reversión** por provisión de liquidez (Grossman y Miller, 1988; Campbell, Grossman y Wang, 1993; Nagel, 2012).
 
@@ -27,7 +26,7 @@ Preguntas:
 2. ¿De qué condiciones depende: cercanía a números redondos, a los extremos del día anterior, compresión previa del rango y anuncios macroeconómicos?
 3. ¿Sobrevive el efecto a los costos de ejecución?
 
-### 1.4 Hipótesis [OSF: Hypotheses]
+### 1.4 Hipótesis
 
 En todo el documento, el **efecto** de una celda (tipo de evento × horizonte) es el retorno normalizado posterior de los eventos menos el de minutos comparables (la nula emparejada, sección 5.1), **medido en la dirección que predice la hipótesis**. Así, "efecto > 0" significa lo mismo en H1 y en H2: que se cumple lo que la hipótesis predice.
 
@@ -43,19 +42,19 @@ En todo el documento, el **efecto** de una celda (tipo de evento × horizonte) e
 
 ## 2. Diseño
 
-### 2.1 Tipo de estudio [OSF: Study type]
+### 2.1 Tipo de estudio
 
 Estudio **observacional** sobre datos que ya existen (precios históricos de EUR/USD de un minuto y calendarios oficiales de anuncios) y que **los autores no han descargado ni analizado**. No hay manipulación ni asignación aleatoria.
 
-### 2.2 Datos existentes [OSF: Existing data; Explanation of existing data]
+### 2.2 Datos existentes
 
-**Registro previo al acceso a los datos.** Ningún autor ha descargado ni analizado precios de EUR/USD para este estudio. Como cualquier observador del mercado, los autores pueden haber visto gráficos del par, pero ninguno ha calculado las variables definidas aquí ni ha mirado retornos después de rupturas de franja. Todo el desarrollo previo al registro (motor de eventos, pruebas estadísticas, controles de calibración y de potencia) se hizo con **mercados simulados**, y está en el repositorio con su historia de commits y la bitácora (`registro/bitacora.md`).
+**Se congela antes de acceder a los datos.** Ningún autor ha descargado ni analizado precios de EUR/USD para este estudio. Como cualquier observador del mercado, los autores pueden haber visto gráficos del par, pero ninguno ha calculado las variables definidas aquí ni ha mirado retornos después de rupturas de franja. Todo el desarrollo previo al registro (motor de eventos, pruebas estadísticas, controles de calibración y de potencia) se hizo con **mercados simulados**, y está en el repositorio con su historia de commits y la bitácora (`registro/bitacora.md`).
 
-### 2.3 Papel de cada tramo [OSF: Study design]
+### 2.3 Papel de cada tramo
 
 | tramo | período | papel |
 |---|---|---|
-| **desarrollo** | desde el primer día disponible en Dukascopy hasta el 31-12-2016 | Se corre primero el análisis pre-registrado completo, con el código de la etiqueta `prerregistro-v1`. Sus resultados son **exploratorios**. Si llevan a cambiar algo, se registra una enmienda fechada en OSF **antes** de abrir validación (2.5). |
+| **desarrollo** | desde el primer día disponible en Dukascopy hasta el 31-12-2016 | Se corre primero el análisis pre-registrado completo, con el código de la etiqueta `prerregistro-v1`. Sus resultados son **exploratorios**. Si llevan a cambiar algo, se agrega una enmienda fechada (2.5) **antes** de abrir validación. |
 | **validación** | 01-01-2017 a 31-12-2020 | **Confirma H1, H2 y H3** y decide el criterio de paso por costos. Se abre una sola vez. |
 | **sellado** | 01-01-2021 a 31-08-2026 | No se descarga hasta la Etapa 5 (16 al 20 de noviembre de 2026). Repite **exactamente** el mismo análisis una sola vez, y es el **único tramo donde se prueba H5**. |
 
@@ -67,7 +66,7 @@ Precisiones:
 4. **Lectura.** Una celda que rechaza en validación queda **confirmada**; si además rechaza en el sellado, **replicada**. Un desacuerdo entre tramos se reporta tal cual; los tramos no se combinan.
 5. H4 (secundario) se corre y se reporta igual en los tres tramos.
 
-### 2.4 Apertura única y registro de lecturas [OSF: Blinding]
+### 2.4 Apertura única y registro de lecturas
 
 - Toda lectura de precios pasa por un **cargador único**. Si el rango pedido toca validación o el sellado sin una bandera explícita, el cargador levanta un error.
 - Con la bandera, antes de entregar datos, el cargador agrega una línea a `registro/aperturas.md` con fecha UTC, tramo, fuente, propósito, hash del commit y usuario de git, y exige el árbol de git limpio. Hay dos clases de línea:
@@ -76,17 +75,17 @@ Precisiones:
 - Tests que lo vigilan: el cargador rechaza fechas de validación y del sellado sin bandera; el módulo de calidad no importa los módulos de resultados, nula ni inferencia; ninguna salida suya trae retornos posteriores. El script de descarga rechaza fechas desde el 01-01-2021 hasta la Etapa 5.
 - Este mecanismo se programa en la etapa de datos, antes de cualquier descarga de validación, y queda en el repositorio.
 
-### 2.5 Política de enmiendas [OSF: Other]
+### 2.5 Política de enmiendas
 
-- **Antes de abrir validación**: se admiten enmiendas fechadas en OSF, cada una con su razón, motivadas por errores o por el análisis de desarrollo. Cada enmienda queda también en la bitácora y en un commit etiquetado.
-- **Después de abrir validación**: el análisis confirmatorio no cambia. Si se descubre un error de código, se corrige y se reportan las dos versiones (la registrada y la corregida), con el error documentado en la bitácora y en una nota en OSF.
-- Una configuración de H5 fuera del conjunto cerrado (5.5) solo puede agregarse con enmienda **antes de abrir el sellado**, y suma al número de ensayos.
+- **Una enmienda** es una sección fechada dentro de "Enmiendas", al final de este documento, con su razón (un error, o algo que mostró el análisis de desarrollo). Cada enmienda se congela con una etiqueta anotada nueva (`prerregistro-v2`, `prerregistro-v3`, ...) y tiene su entrada en la bitácora. **Solo se admiten antes de abrir validación.**
+- **Después de abrir validación**: el análisis confirmatorio no cambia. Si se descubre un error de código, se corrige y se reportan las dos versiones (la pre-registrada y la corregida); la nota del error va en la bitácora.
+- Una configuración de H5 fuera del conjunto cerrado (5.5) solo puede agregarse con una enmienda, y suma al número de ensayos.
 
-### 2.6 Calendario [OSF: Other]
+### 2.6 Calendario
 
 | fecha | hito |
 |---|---|
-| 29-09-2026 | registro en OSF |
+| 29-09-2026 | congelamiento: etiqueta `prerregistro-v1` en el repositorio público, antes de cualquier descarga |
 | 29-09 al 01-10-2026 | descarga de datos hasta 2020 y control de calidad |
 | 02-10-2026 | Entrega N1 |
 | 05-10 al 23-10-2026 | Etapa 3: análisis en desarrollo; enmiendas, si las hay; apertura de validación; criterio de paso |
@@ -97,7 +96,7 @@ Precisiones:
 
 ## 3. Datos
 
-### 3.1 Fuentes [OSF: Data collection procedures]
+### 3.1 Fuentes
 
 | fuente | qué | papel |
 |---|---|---|
@@ -105,12 +104,12 @@ Precisiones:
 | **HistData** | Velas de 1 minuto de EUR/USD, **solo bid**, en hora EST **fija** (UTC−5, sin horario de verano; se convierte a UTC sumando 5 horas). | **Control y réplica**: la réplica del análisis con HistData usa **bid**, mientras el análisis principal usa el precio medio de Dukascopy. La coincidencia entre fuentes se mide con el bid de las dos. |
 | **Calendarios oficiales** | Fecha y hora de los anuncios de la lista cerrada (4.8). | Variable de anuncio (H4) y control en la regresión de H3. |
 
-### 3.2 Períodos [OSF: Sample size; Sample size rationale]
+### 3.2 Períodos
 
 - Los tres tramos de 2.3. El tamaño de muestra lo fija el período, no una regla de parada.
 - **Orden de magnitud esperado**, según el simulador (no según los datos): unas 310 sostenidas y 700 reingresos por año. En los 4 años de validación, unas 1.230 sostenidas y 2.790 reingresos.
 
-### 3.3 Control de calidad [OSF: Data exclusion]
+### 3.3 Control de calidad
 
 Se hace sobre las dos fuentes, por año. Sobre validación es una **lectura de calidad** (2.4): nunca calcula retornos posteriores a eventos.
 
@@ -125,7 +124,7 @@ Se hace sobre las dos fuentes, por año. Sobre validación es una **lectura de c
 | Extremos por franja | Diferencia de máximos y mínimos de franja entre fuentes (bid), en pips: mediana y percentil 95 por año. | Informativo. |
 | **Rupturas coincidentes** | Con el detector sobre el bid de las dos fuentes y el mismo umbral: acuerdo en "hay ruptura y en qué dirección" en **al menos 90%** de las franjas; para las rupturas que coinciden, porcentaje con diferencia de hora de 2 minutos o menos. | Entre 80% y 90%: el análisis principal no cambia y la réplica con HistData se reporta con advertencia. **Menos de 80%**: se detiene la etapa de datos y se busca un error de manejo (zona, formato, huecos). Si no lo hay, el grupo decide antes de abrir validación, lo registra y **no cambia definiciones**. |
 
-### 3.4 Criterios de exclusión [OSF: Data exclusion; Missing data]
+### 3.4 Criterios de exclusión
 
 - Barras inválidas (3.3): pasan a faltantes.
 - No se excluyen días por calendario (feriados). El motor descarta, por regla, las franjas de referencia con cobertura menor a 0,90, las que tienen un cierre de mercado entre la referencia y la franja en curso, las de barra ambigua (4.2) y las que no tienen `sigma_ref`. Navidad y Año Nuevo quedan fuera por cobertura.
@@ -134,7 +133,7 @@ Se hace sobre las dos fuentes, por año. Sobre validación es una **lectura de c
 
 ---
 
-## 4. Variables [OSF: Measured variables; Indices]
+## 4. Variables
 
 Todos los valores están en `config.py` (etiqueta `prerregistro-v1`). **Regla de causalidad**: en el instante t solo se usan barras cuyo **cierre** es ≤ t; el índice de cada barra es su hora de apertura, así que su información existe en índice + 1 minuto.
 
@@ -204,7 +203,7 @@ Solo anuncios **programados**, con la hora real de publicación que da la fuente
 
 ---
 
-## 5. Análisis [OSF: Statistical models; Inference criteria]
+## 5. Análisis
 
 ### 5.1 Nula emparejada (H1 y H2)
 
@@ -224,6 +223,15 @@ Solo anuncios **programados**, con la hora real de publicación que da la fuente
 | H4 (secundario, no confirma) | 8: {sostenida, reingreso} × 4 horizontes | aleatorización estudentizada (5.4) | Holm dentro de H4, solo como referencia | 0,05 | una ("mayor") |
 
 - **Qué se confirma.** Una celda de la familia principal queda confirmada si su p ajustado por Holm es ≤ 0,025 y el efecto tiene el signo predicho. H1 recibe apoyo si se confirma al menos una celda de sostenidas; H2, si se confirma al menos una de reingresos. Se reportan todas las celdas.
+- **Lectura de la pregunta 1** según el resultado (en validación; "sí" = la hipótesis recibe apoyo):
+
+  | H1 (sostenidas) | H2 (reingresos) | lectura |
+  |---|---|---|
+  | sí | no | Domina la continuación tras las rupturas que aguantan. |
+  | no | sí | Domina la reversión tras los reingresos. Por la regla 8.2 (a), no se concluye que no haya continuación. |
+  | sí | sí | Operan los dos mecanismos, en momentos distintos de la trayectoria. |
+  | no | no | No hay efecto por encima del mínimo detectable (sección 6); se acota su tamaño. |
+
 - En H3, un rechazo en la dirección esperada apoya H3; uno en la dirección contraria se reporta como contrario a H3.
 - **Si no se rechaza**, se acota el efecto: se reporta el borde superior del IC95 del efecto de cada celda, en unidades y en pips, junto al efecto mínimo detectable (sección 6).
 - **Errores**: agrupados por **fecha de Londres** en todo el estudio (estadístico de la nula, regresiones de H3, diferencia de H4, efecto neto). **Newey-West** se reporta como contraste para los coeficientes de H3 y para el promedio de cada celda principal, con rezagos = piso(4 · (n/100)^(2/9)) (Newey y West, 1994), con n = eventos de la celda en orden de tiempo.
@@ -302,7 +310,7 @@ Se repite el análisis completo con cada variante. Ninguna confirma nada: se rep
 - **NOTICIA_MODO "franja"**: solo afecta a H4. Bloque largo del punto D: 10,0% por prueba [4,2%-17,5%].
 - **Segunda fuente, sin días de anuncio y subperíodos**: no tienen control en simulación. Cambian la fuente o el subconjunto de datos, no el método.
 
-### 5.7 Qué es exploratorio [OSF: Exploratory analysis]
+### 5.7 Qué es exploratorio
 
 - Todo el análisis en desarrollo.
 - El tipo ruptura y el horizonte de 120 minutos de la familia principal (descriptivos).
@@ -312,7 +320,7 @@ Se repite el análisis completo con cada variante. Ninguna confirma nada: se rep
 
 ---
 
-## 6. Potencia y tamaño (medidos con mercados simulados) [OSF: Sample size rationale]
+## 6. Potencia y tamaño (medidos con mercados simulados)
 
 ### 6.1 Cómo se midió
 
@@ -384,9 +392,9 @@ Además: el efecto se inyectó como una constante sobre el retorno normalizado (
 
 ---
 
-## 7. Cambios respecto de la propuesta [OSF: Other]
+## 7. Cambios respecto de la propuesta
 
-1. **Holm en vez de Romano-Wolf como corrección principal.** Tal como están implementados, no son dos correcciones del mismo test sino dos tests distintos. Holm corrige los p-valores de la nula emparejada, a una cola. Romano-Wolf prueba el promedio contra cero con el t de la regresión, a dos colas y sin la nula, porque su bootstrap necesita un estadístico común. El test que se pre-registra es la nula emparejada, y Holm es válido con cualquier dependencia entre pruebas. Romano-Wolf se reporta como prueba secundaria. Decidido sin mirar la curva de potencia.
+1. **Holm en vez de Romano-Wolf como corrección principal.** Tal como están implementados, no son dos correcciones del mismo test sino dos tests distintos. Holm corrige los p-valores de la nula emparejada, a una cola. Romano-Wolf prueba el promedio contra cero con el t de la regresión, a dos colas y sin la nula, porque su bootstrap necesita un estadístico común. El test que se pre-registra es la nula emparejada, y Holm es válido con cualquier dependencia entre pruebas. Romano-Wolf se reporta como prueba secundaria. Decidido sin mirar la curva de potencia. La propuesta citaba también el Reality Check de White (2000) junto a Romano-Wolf: tampoco se usa en las familias de pruebas. La búsqueda de H5 se penaliza con el Deflated Sharpe y la probabilidad de sobreajuste (5.5).
 2. **Emparejamiento por tercio de la franja y por volatilidad reciente**, además de franja, día y decil de volatilidad. Un evento no ocurre en cualquier minuto: tiende a llegar en un momento determinado de la franja y justo después de una expansión. Comparar con minutos de otro momento o de otra volatilidad reciente era comparar cosas distintas. Ninguno de los dos cambios mejoró la calibración en el control negativo; se mantienen por ser correctos a priori, y los estratos siguen holgados.
 3. **Errores agrupados por fecha de Londres en vez de Newey-West** como especificación principal. Los eventos del mismo día comparten shocks; Newey-West queda como contraste (5.2).
 4. **El horizonte de 120 minutos es descriptivo** en la familia principal. En el control negativo, esa celda rechazó entre el 14% y el 16% de las veces bajo la hipótesis nula, así que no se usa para confirmar. No se esconde: se reporta con su medición.
@@ -401,7 +409,7 @@ Además se precisan tres cosas que la propuesta dejaba abiertas:
 
 ---
 
-## 8. Limitaciones [OSF: Other]
+## 8. Limitaciones
 
 1. **Tamaño distinto entre bloques y diferencia sin explicar entre 4 y 6 años.** El tamaño medido de la prueba principal no es igual entre bloques (6.3). La diferencia entre 4 y 6 años es mayor que el azar en la cola de la hipótesis y **no tiene explicación**: mismo código, misma nula, solo cambian la duración y las semillas. Con el alfa adoptado, el tamaño por prueba de 4 años cumple el 5%, pero no puede descartarse un exceso de hasta 5,8%.
 2. **Contagio entre celdas.** El 71-73% de las sostenidas tiene un reingreso posterior en la misma franja. En el control B, un efecto de reversión sobre los reingresos se contagia a las sostenidas **en contra de H1**: −29% (30 minutos), −41% (60) y −63% (fin de franja) del delta. Al revés, un efecto de continuación se contagia a los reingresos en −14% a −21%. El contagio siempre va en contra de la otra hipótesis, así que no crea falsos positivos, pero resta potencia. **Regla de interpretación**:
@@ -423,9 +431,9 @@ Además se precisan tres cosas que la propuesta dejaba abiertas:
 
 ---
 
-## 9. Reproducibilidad [OSF: Other]
+## 9. Reproducibilidad
 
-- **Repositorio**: https://github.com/Ozzaru/Cuartinhos_EURUSD, etiqueta **`prerregistro-v1`**. El registro en OSF cita su hash.
+- **Repositorio**: https://github.com/Ozzaru/Cuartinhos_EURUSD, etiqueta anotada **`prerregistro-v1`**. Las enmiendas, si las hay, llevan su propia etiqueta (2.5).
 - **Entorno**: Python 3.13.2 en Windows 11, con versiones fijas en `requirements.txt`: pandas 2.2.3, numpy 2.4.6, scipy 1.18.1, statsmodels 0.15.0, pyarrow 25.0.1, matplotlib 3.11.2, pytest 9.1.1, tzdata 2026.4 y pytz 2026.3.post1. pandas se queda en 2.2 a propósito (pandas 3 cambió la resolución por defecto de las fechas); desde numpy 2.5 los tests fallan a propósito por un aviso de pandas.
 - **Todo parámetro vive en `config.py`**; ningún otro archivo inventa números. Semilla maestra: 20260916.
 - **Tests**: `pytest`, con cero avisos (los avisos de obsolescencia se tratan como error).
@@ -469,3 +477,10 @@ python -m experimentos.anexo_sensibilidad                          anexo de sens
 - Osler, C. L. (2005). Stop-loss orders and price cascades in currency markets. *Journal of International Money and Finance*, 24(2), 219-241.
 - Phipson, B., y Smyth, G. K. (2010). Permutation p-values should never be zero. *Statistical Applications in Genetics and Molecular Biology*, 9(1), Article 39.
 - Romano, J. P., y Wolf, M. (2005). Stepwise multiple testing as formalized data snooping. *Econometrica*, 73(4), 1237-1282.
+- White, H. (2000). A reality check for data snooping. *Econometrica*, 68(5), 1097-1126.
+
+---
+
+## Enmiendas
+
+Ninguna (versión 1).

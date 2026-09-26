@@ -456,3 +456,5 @@ Aplicado en el paso 2 (ver la bitácora). Además, dos piezas que el pre-registr
 - el IC de H4 por inversión de la prueba de aleatorización.
 
 `FOMC_POR_ANIO`, sin uso, se borró.
+
+**26-09-2026: sin OSF.** El grupo decidió no registrar en OSF. El pre-registro se congela con la etiqueta anotada `prerregistro-v1` en el repositorio público de GitHub. Donde esta tabla dice OSF (b.2 y b.5), vale lo que dice `registro/prerregistro.md`, sección 2.5: una enmienda es una sección fechada al final del pre-registro, con una etiqueta nueva y su entrada en la bitácora, siempre antes de abrir validación.

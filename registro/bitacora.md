@@ -2114,3 +2114,49 @@ Revision del borrador por el grupo. Con su OK explicito: paso 3 (correcciones,
 PDF, etiqueta `prerregistro-v1`, push).
 
 **Hash del paso 2**: `599945e` (`punto F (paso 2): config sin marcas, variantes de robustez calibradas y borrador del pre-registro`). Sin push.
+
+---
+
+## Punto F, paso 2 (revision del grupo) — Ajustes al borrador
+
+- **Fecha**: 2026-09-26
+- **Sin push.** El paso 3 (congelar) se pide aparte.
+
+### Decisiones del grupo
+
+1. **Sin OSF.** El pre-registro se congela con la etiqueta anotada
+   `prerregistro-v1` en el repositorio publico de GitHub.
+   - Se quitaron todas las menciones a OSF, incluidas las marcas `[OSF: ...]` de
+     los titulos.
+   - Una **enmienda** es una seccion fechada en "Enmiendas", al final del
+     pre-registro, con una etiqueta nueva (`prerregistro-v2`, ...) y su entrada
+     en esta bitacora, siempre antes de abrir validacion.
+   - La nota por un error de codigo despues de abrir validacion va en esta
+     bitacora.
+   - El hito del 29-09 es el congelamiento, antes de cualquier descarga.
+   - Consecuencia de la regla general: una configuracion de H5 fuera del
+     conjunto cerrado solo puede agregarse con una enmienda, o sea antes de abrir
+     validacion. En `decisiones_F.md` (b.5) decia "antes de abrir el sellado".
+2. **5.2**: se agrego la tabla de lectura de la pregunta 1 segun el resultado
+   de H1 y H2 (con la regla 8.2 (a) en el caso "H1 no, H2 si").
+3. **7.1**: se agrego el Reality Check de White (2000), que la propuesta citaba
+   junto a Romano-Wolf. Tampoco se usa en las familias; la busqueda de H5 se
+   penaliza con el DSR y la probabilidad de sobreajuste. Se agrego a las
+   referencias.
+4. **Particion UTC**: queda declarada como esta, sin parametro nuevo.
+5. **Aprobadas**: las cinco decisiones de redaccion del paso 2, la regla de
+   rezagos de Newey-West y el IC de H4 por inversion de la prueba.
+
+### PDF de lectura
+
+`resultados/prerregistro_lectura.pdf` (14 paginas; no se versiona, lo ignora
+`*.pdf`).
+
+- Lleva un aviso arriba: version de lectura, no congelada.
+- Se genero con lo que hay en la maquina, sin agregar dependencias al proyecto:
+  pandoc 3.10 (Markdown a HTML con una hoja de estilo de impresion) y Microsoft
+  Edge sin interfaz (`--headless --print-to-pdf`).
+- El paso 3 usara el mismo camino para `registro/prerregistro_v1.pdf`.
+
+**Tests**: 244 pasan, 0 fallan, 0 avisos (con el `.venv`). No cambio codigo en
+esta revision.
