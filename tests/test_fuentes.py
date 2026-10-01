@@ -291,3 +291,48 @@ def test_un_nombre_hasta_el_31_de_diciembre_de_2020_si_se_registra(entorno):
         with open(os.path.join(carpeta, f"EURUSD_1 Min_{lado}_2003.05.04_2020.12.31.csv"), "w") as f:
             f.write("x\n")
     assert len(manifiesto.registrar_manuales("dukascopy", cfg=cfg, repo=repo)) == 2
+
+
+# -----------------------------------------------------------------------------
+#  Primera pasada de Dukascopy: solo horas, antes de leer un precio
+# -----------------------------------------------------------------------------
+def _csv_dukascopy(cfg, lado, filas, fin="2020.12.31"):
+    carpeta = os.path.join(cfg.RUTA_CRUDOS, "dukascopy")
+    os.makedirs(carpeta, exist_ok=True)
+    ruta = os.path.join(carpeta, f"EURUSD_1 Min_{lado}_2020.12.30_{fin}.csv")
+    with open(ruta, "w", encoding="utf-8") as f:
+        f.write("Time (UTC),Open,High,Low,Close,Volume \n")
+        for hora in filas:
+            f.write(f"{hora},1,22001,1,22003,1,21999,1,22002,12,5\n")
+    return ruta
+
+
+def test_un_minuto_del_sellado_detiene_la_conversion_sin_leer_precios(entorno, monkeypatch):
+    cfg, repo = entorno
+    _csv_dukascopy(cfg, "Bid", ["2020-12-31 21:58:00", "2021-01-01 00:00:00"])
+    _csv_dukascopy(cfg, "Ask", ["2020-12-31 21:58:00"])
+    manifiesto.registrar_manuales("dukascopy", cfg=cfg, repo=repo)
+    # 2020 es validacion: la conversion exige el arbol limpio.
+    subprocess.run(["git", "-C", repo, "add", "-A"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", repo, "-c", "commit.gpgsign=false", "commit", "-q", "-m", "m"],
+                   check=True, capture_output=True)
+
+    def prohibido(*args, **kwargs):
+        raise AssertionError("se interpretaron precios antes de revisar las horas")
+    monkeypatch.setattr(formatos, "dukascopy_jforex", prohibido)
+    with pytest.raises(cargador.CandadoError, match="No se interpreto ningun precio"):
+        cargador.convertir("dukascopy", "2020-12-01", "2020-12-31", cfg=cfg, repo=repo)
+
+
+def test_la_primera_pasada_cuenta_los_minutos_que_estan_en_un_solo_lado(entorno):
+    cfg, repo = entorno
+    bid = _csv_dukascopy(cfg, "Bid", ["2016-01-04 10:00:00", "2016-01-04 10:01:00",
+                                      "2016-01-04 10:02:00"])
+    ask = _csv_dukascopy(cfg, "Ask", ["2016-01-04 10:00:00", "2016-01-04 10:02:00",
+                                      "2016-01-04 10:03:00", "2016-01-04 10:04:00"])
+    por_archivo, minutos = cargador.revisar_minutos_dukascopy([bid, ask], cfg)
+    fila = minutos.iloc[0]
+    assert (fila["anio"], fila["minutos_bid"], fila["minutos_ask"]) == (2016, 3, 4)
+    assert (fila["solo_bid"], fila["solo_ask"]) == (1, 2)
+    assert por_archivo["ultima_utc"].tolist() == [pd.Timestamp("2016-01-04 10:02", tz="UTC"),
+                                                  pd.Timestamp("2016-01-04 10:04", tz="UTC")]

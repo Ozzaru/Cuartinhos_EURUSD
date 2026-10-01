@@ -36,6 +36,7 @@ Dukascopy, CSV del Historical Data Manager de JForex (un archivo por lado):
 """
 import re
 
+import numpy as np
 import pandas as pd
 
 LADOS = ("open", "high", "low", "close")
@@ -87,7 +88,7 @@ def histdata_m1(flujo, horas_a_utc):
 
 def _encabezado_dukascopy(linea):
     """Separador y nombres del encabezado; exige que la hora declare UTC o GMT."""
-    linea = linea.strip().lstrip("﻿")
+    linea = linea.strip().lstrip("\ufeff")
     sep = ";" if linea.count(";") > linea.count(",") else ","
     nombres = [c.strip() for c in linea.split(sep)]
     if len(nombres) != 6:
@@ -111,6 +112,37 @@ def _formato_de_fecha(ejemplo):
         except ValueError:
             continue
     raise FormatoError(f"Dukascopy: no reconozco el formato de fecha '{ejemplo}'")
+
+
+def _marcas_a_ns(marcas, formato):
+    """Horas de texto a nanosegundos UTC (int64), con el formato detectado."""
+    serie = pd.Series(marcas, dtype=str).str.replace(_SUFIJO_ZONA, "", regex=True).str.strip()
+    formato = formato or _formato_de_fecha(serie.iloc[0])
+    instantes = pd.to_datetime(serie, format=formato)
+    return formato, instantes.to_numpy(dtype="datetime64[ns]").astype(np.int64)
+
+
+def marcas_dukascopy(flujo, filas_por_trozo=1_000_000):
+    """
+    Solo la hora de cada fila de un CSV de Dukascopy, sin interpretar precios.
+
+    Es la primera pasada de la conversion: con ella se revisa, antes de leer un
+    solo precio, que ningun minuto sea del sellado y que Bid y Ask traigan los
+    mismos minutos. Genera arrays int64 de nanosegundos UTC, por trozos. De
+    cada linea se toma solo lo que esta antes del primer separador.
+    """
+    sep = _encabezado_dukascopy(flujo.readline())
+    formato = None
+    lote = []
+    for linea in flujo:
+        if linea.strip():
+            lote.append(linea.split(sep, 1)[0])
+        if len(lote) == filas_por_trozo:
+            formato, ns = _marcas_a_ns(lote, formato)
+            lote = []
+            yield ns
+    if lote:
+        yield _marcas_a_ns(lote, formato)[1]
 
 
 _DIGITOS = r"\d+"

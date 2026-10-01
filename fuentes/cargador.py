@@ -384,7 +384,7 @@ def _convertir_histdata(ini, fin, cfg, repo):
     for anio, trozos in sorted(por_anio.items()):
         tabla = _unico(pd.concat(trozos), f"histdata {anio}")
         escritos[anio] = (_escribir(tabla, "histdata", anio, cfg), len(tabla))
-    return resumen, escritos
+    return {"archivos": resumen}, escritos
 
 
 def _lado_dukascopy(nombre):
@@ -395,22 +395,66 @@ def _lado_dukascopy(nombre):
     return lados[0]
 
 
+def revisar_minutos_dukascopy(archivos, cfg):
+    """
+    Primera pasada, SIN interpretar precios: solo la hora de cada fila.
+
+    - Si algun minuto es del sellado (desde DESCARGA_TOPE), se detiene ahi: no
+      se lee ningun precio de ningun archivo.
+    - Compara los minutos del Bid con los del Ask (todos los archivos de cada
+      lado juntos). Devuelve una tabla por archivo y otra por ano con los
+      minutos de cada lado y los que estan en un solo lado.
+    """
+    tope = pd.Timestamp(cfg.DESCARGA_TOPE, tz="UTC").value
+    por_archivo, por_lado = [], {"bid": [], "ask": []}
+    for archivo in archivos:
+        lado = _lado_dukascopy(archivo)
+        with open(archivo, encoding="utf-8-sig", newline="") as flujo:
+            ns = np.concatenate(list(formatos.marcas_dukascopy(flujo)))
+        despues = int((ns >= tope).sum())
+        if despues:
+            raise CandadoError(f"{os.path.basename(archivo)}: {despues} minutos desde el "
+                               f"{cfg.DESCARGA_TOPE} (sellado). No se interpreto ningun precio.")
+        por_archivo.append({"archivo": os.path.basename(archivo), "lado": lado, "filas": len(ns),
+                            "primera_utc": pd.Timestamp(int(ns.min()), tz="UTC"),
+                            "ultima_utc": pd.Timestamp(int(ns.max()), tz="UTC"),
+                            "repetidas_dentro": int(len(ns) - len(np.unique(ns)))})
+        por_lado[lado].append(ns)
+    minutos = {lado: np.unique(np.concatenate(v)) if v else np.zeros(0, np.int64)
+               for lado, v in por_lado.items()}
+    anio = {lado: pd.DatetimeIndex(v.astype("datetime64[ns]")).year.to_numpy()
+            for lado, v in minutos.items()}
+    solo_bid = np.isin(minutos["bid"], minutos["ask"], invert=True)
+    solo_ask = np.isin(minutos["ask"], minutos["bid"], invert=True)
+    filas = []
+    for a in sorted(set(anio["bid"]) | set(anio["ask"])):
+        filas.append({"anio": int(a), "minutos_bid": int((anio["bid"] == a).sum()),
+                      "minutos_ask": int((anio["ask"] == a).sum()),
+                      "solo_bid": int((solo_bid & (anio["bid"] == a)).sum()),
+                      "solo_ask": int((solo_ask & (anio["ask"] == a)).sum())})
+    return pd.DataFrame(por_archivo), pd.DataFrame(filas)
+
+
 def _convertir_dukascopy(ini, fin, cfg, repo):
     """
-    Dos pasadas, para no tener millones de filas de los dos lados en memoria:
-    cada CSV se lee por trozos a partes temporales por lado y ano; despues,
-    ano por ano, se juntan bid y ask.
+    Primero revisa los minutos sin leer precios (`revisar_minutos_dukascopy`).
+    Despues, dos pasadas, para no tener millones de filas de los dos lados en
+    memoria: cada CSV se lee por trozos a partes temporales por lado y ano; al
+    final, ano por ano, se juntan bid y ask.
     """
+    archivos = _crudos("dukascopy", "*.csv", cfg, repo)
+    por_archivo, minutos = revisar_minutos_dukascopy(archivos, cfg)
     partes = os.path.join(cfg.RUTA_PROCESADOS, "_partes_dukascopy")
     shutil.rmtree(partes, ignore_errors=True)
     os.makedirs(partes)
     resumen = []
     anios = set()
-    for archivo in _crudos("dukascopy", "*.csv", cfg, repo):
+    for archivo in archivos:
         lado = _lado_dukascopy(archivo)
         total = dentro_total = 0
         with open(archivo, encoding="utf-8-sig", newline="") as flujo:
-            for k, trozo in enumerate(formatos.dukascopy_jforex(flujo, cfg.PRECIO_PLAUSIBLE)):
+            for k, trozo in enumerate(formatos.dukascopy_jforex(flujo, cfg.PRECIO_PLAUSIBLE,
+                                                                filas_por_trozo=250_000)):
                 _exigir_antes_del_tope(trozo.index, archivo, cfg)
                 dentro = (trozo.index >= ini) & (trozo.index < fin)
                 total += len(trozo)
@@ -438,7 +482,7 @@ def _convertir_dukascopy(ini, fin, cfg, repo):
         tabla = tabla[COLUMNAS_DUKASCOPY]
         escritos[anio] = (_escribir(tabla, "dukascopy", anio, cfg), len(tabla))
     shutil.rmtree(partes, ignore_errors=True)
-    return resumen, escritos
+    return {"archivos": resumen, "por_archivo": por_archivo, "minutos": minutos}, escritos
 
 
 def convertir(fuente, desde, hasta, cfg=None, repo=None):
@@ -473,7 +517,11 @@ def main(argv=None):
     parser.add_argument("--hasta", required=True)
     args = parser.parse_args(argv)
     resumen, escritos = convertir(args.convertir, args.desde, args.hasta)
-    for nombre, total, dentro in resumen:
+    if "por_archivo" in resumen:
+        print("Primera pasada (solo horas, sin precios):")
+        print(resumen["por_archivo"].to_string(index=False))
+        print(resumen["minutos"].to_string(index=False))
+    for nombre, total, dentro in resumen["archivos"]:
         print(f"{nombre}: {total} filas, {dentro} en el rango")
     for anio, (ruta, filas) in escritos.items():
         print(f"{anio}: {filas} filas -> {ruta}")
