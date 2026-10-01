@@ -148,6 +148,28 @@ def test_la_lectura_de_calidad_de_validacion_queda_anotada(cfg, repo):
     assert len(_aperturas(repo)) == 4
 
 
+def test_el_registro_de_aperturas_solo_admite_lineas_agregadas(cfg, repo):
+    calidad.correr("2017-01-02", "2017-01-06", cfg=cfg, repo=repo)
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "cierre de sesion: registro de aperturas")
+    ruta = os.path.join(repo, cargador.REGISTRO_APERTURAS)
+    with open(ruta, encoding="utf-8") as f:
+        original = f.read()
+    # Agregar al final: pasa.
+    calidad.correr("2017-01-02", "2017-01-06", cfg=cfg, repo=repo)
+    assert len(_aperturas(repo)) == 4
+    # Editar una linea ya commiteada: no pasa, y no se agrega nada.
+    with open(ruta, "w", encoding="utf-8") as f:
+        f.write(original.replace("lectura de calidad", "lectura", 1))
+    with pytest.raises(cargador.CandadoError, match="solo admite lineas agregadas"):
+        calidad.correr("2017-01-02", "2017-01-06", cfg=cfg, repo=repo)
+    assert len(_aperturas(repo)) == 2
+    # Borrar el archivo: tampoco.
+    os.remove(ruta)
+    with pytest.raises(cargador.CandadoError, match="borrado"):
+        calidad.correr("2017-01-02", "2017-01-06", cfg=cfg, repo=repo)
+
+
 def test_la_lectura_de_validacion_exige_el_arbol_limpio(cfg, repo):
     with open(os.path.join(repo, "sin_commitear.py"), "w") as f:
         f.write("x = 1\n")

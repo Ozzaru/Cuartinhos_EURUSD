@@ -2256,3 +2256,28 @@ Commit `2292d7f`, anterior a la primera descarga.
   `CUARTINHOS_PROCESADOS`.
 - Tests nuevos: `test_candado.py` (24), `test_fuentes.py` (17),
   `test_rupturas.py` (7): 292 pasan, 0 avisos.
+
+### Registro de aperturas: solo crece (decision del grupo, 2026-10-01)
+
+- Se confirma la excepcion del arbol limpio para `registro/aperturas.md`, con
+  dos condiciones:
+  1. a ese archivo solo se le agregan lineas; nunca se editan ni se borran;
+  2. se commitea al cierre de cada sesion de trabajo.
+- La condicion 1 la vigila el codigo: antes de cualquier lectura que lo exija
+  y antes de anotar, el cargador compara el archivo con su version del ultimo
+  commit (`git show HEAD:registro/aperturas.md`) y exige que empiece
+  exactamente con ella. Si hay una linea editada o borrada, o el archivo no
+  esta, no pasa nada. Test nuevo en `test_candado.py`; 293 pasan, 0 avisos.
+
+### Piloto (paso 2), estado al 2026-10-01
+
+- HistData, enero de 2016: bajado (zip anual de 2016, 3,4 MB, 14 s; HistData
+  solo da archivos anuales para los anos cerrados), convertido solo enero
+  (28.905 barras) y revisado (`resultados/calidad_piloto_histdata.md`): 5
+  decimales, solo bid, volumen siempre 0, 0 barras invalidas, las 4 semanas
+  abren y cierran a las 17:00 de Nueva York exactas, ningun hueco de mas de
+  60 minutos fuera del fin de semana.
+- Dukascopy: la exportacion de enero de 2016 no esta en esta maquina (la
+  carpeta `Raw\Cuartinhos_EURUSD\dukascopy\` esta vacia; tampoco hay CSV
+  recientes en el perfil ni instalacion de JForex). El piloto queda a la
+  espera de esos dos archivos.

@@ -17,7 +17,10 @@ Pre-registro, seccion 2.4, y regla 3 del punto G. Hace tres cosas.
      clases son las del pre-registro: "lectura de calidad" y "apertura".
      El arbol limpio admite una sola excepcion: el propio
      `registro/aperturas.md`, que es lo que el cargador escribe. Sin ella, la
-     segunda lectura de una misma corrida ya no podria hacerse.
+     segunda lectura de una misma corrida ya no podria hacerse. Con dos
+     condiciones (decision del grupo): ese archivo solo crece (el candado
+     revisa que empiece exactamente con su version del ultimo commit) y se
+     commitea al cierre de cada sesion de trabajo.
 
 2. LA CONVERSION de los crudos a parquet (`convertir`): un archivo por fuente
    y ano UTC, con el indice en la hora de APERTURA de cada barra. Antes de leer
@@ -142,16 +145,38 @@ def cambios_pendientes(repo):
     return [l for l in lineas if l[3:].strip().strip('"') != REGISTRO_APERTURAS]
 
 
+def exigir_solo_agregados(repo):
+    """
+    registro/aperturas.md solo crece: a lo commiteado se le agregan lineas al
+    final, nunca se edita ni se borra nada (decision del grupo, punto G). Si
+    el archivo de trabajo no empieza exactamente con la version del ultimo
+    commit, el candado no deja pasar nada.
+    """
+    ruta = os.path.join(repo, REGISTRO_APERTURAS)
+    commiteado = _git(repo, "show", f"HEAD:{REGISTRO_APERTURAS}", check=False)
+    if commiteado.returncode != 0:
+        return                                   # todavia no esta en el repositorio
+    if not os.path.exists(ruta):
+        raise CandadoError(f"{REGISTRO_APERTURAS} fue borrado: solo admite lineas agregadas")
+    with open(ruta, encoding="utf-8", newline="") as f:
+        actual = f.read().replace("\r\n", "\n")
+    if not actual.startswith(commiteado.stdout.replace("\r\n", "\n")):
+        raise CandadoError(f"{REGISTRO_APERTURAS} tiene lineas editadas o borradas respecto del "
+                           "ultimo commit: solo admite lineas agregadas al final")
+
+
 def exigir_arbol_limpio(repo):
     pendientes = cambios_pendientes(repo)
     if pendientes:
         raise CandadoError(
             "el arbol de git no esta limpio: lo que lee validacion tiene que ser "
             "codigo commiteado. Pendiente:\n  " + "\n  ".join(pendientes))
+    exigir_solo_agregados(repo)
 
 
 def anotar(repo, clase, tramos_tocados, fuente, proposito, desde, hasta):
     """Agrega una linea a registro/aperturas.md. Devuelve la linea."""
+    exigir_solo_agregados(repo)
     ruta = os.path.join(repo, REGISTRO_APERTURAS)
     commit = _git(repo, "rev-parse", "HEAD").stdout.strip()
     usuario = _git(repo, "config", "user.name", check=False).stdout.strip() or "(sin user.name)"
