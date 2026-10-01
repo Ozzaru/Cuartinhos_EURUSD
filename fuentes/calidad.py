@@ -477,7 +477,17 @@ def _md(tabla, decimales=3):
     """Tabla markdown simple, sin dependencias extra."""
     if tabla is None or len(tabla) == 0:
         return "_(ninguna)_\n"
+    # Los conteos de una columna que tiene un vacio (una fuente sin ese
+    # chequeo) quedan como decimales; convert_dtypes los devuelve a enteros.
+    tabla = tabla.copy()
+    for c in tabla.select_dtypes("float").columns:
+        valores = tabla[c].dropna()
+        if len(valores) and (valores == np.round(valores)).all() and c.startswith(("inv_", "planas")):
+            tabla[c] = tabla[c].astype("Int64")
+
     def celda(v):
+        if v is pd.NA or v is pd.NaT:
+            return ""
         if isinstance(v, (float, np.floating)):
             return "" if np.isnan(v) else f"{v:.{decimales}f}"
         if isinstance(v, (bool, np.bool_)):

@@ -2281,3 +2281,52 @@ Commit `2292d7f`, anterior a la primera descarga.
   carpeta `Raw\Cuartinhos_EURUSD\dukascopy\` esta vacia; tampoco hay CSV
   recientes en el perfil ni instalacion de JForex). El piloto queda a la
   espera de esos dos archivos.
+
+### Piloto (paso 2): resultado, enero de 2016
+
+**Dukascopy, lo que trajo la exportacion de JForex** (dos CSV, Bid y Ask,
+exportados por el grupo del 31-12-2015 al 02-02-2016 para cubrir enero):
+- El computador esta en UTC-3 (hora de verano de Chile). El selector de fechas
+  de JForex trabaja en hora local: los archivos parten el 31-12-2015 a las
+  03:00 UTC y terminan el 02-02-2016 a las 02:59 UTC, o sea de medianoche a
+  medianoche de Chile. El encabezado dice `Time (UTC)` y los datos SI estan en
+  UTC (zona, abajo).
+- **Coma decimal**: JForex en espanol escribe "1,08701" y separa los campos
+  tambien con coma; las filas traen 10 u 11 campos contra 6 del encabezado. La
+  primera conversion lo rechazo (520 filas "no numericas") y se agrego al
+  lector el formato con coma decimal, con controles estrictos: 10 u 11 campos,
+  solo digitos, precios dentro de `PRECIO_PLAUSIBLE` (0,5-2,5). Los cuatro
+  precios siempre traen parte entera y decimales; el volumen entero viene sin
+  decimales (una coma menos). Se reviso con los digitos enmascarados, sin
+  mirar precios.
+- **Sin sabados**: JForex no exporta el fin de semana (faltan el 1 de enero,
+  feriado, y los cinco sabados); los domingos empiezan a las 22:00 UTC.
+- 31.680 filas por lado; 28.920 en enero UTC (lo demas se descarta al
+  convertir). Dentro de la semana, 10 velas planas (volumen 0): pasan a
+  faltantes.
+
+**Control de calidad del piloto** (`resultados/calidad_piloto.md`), las dos
+fuentes, enero de 2016:
+
+| chequeo | resultado | criterio |
+|---|---|---|
+| formato | 5 decimales en las dos; minutos exactos; Dukascopy 28.920 barras, HistData 28.905 | - |
+| integridad | 0 barras invalidas en las dos; Dukascopy: 10 planas (mercado abierto) | < 0,1%: cumple |
+| zona horaria | maximo en desfase 0 (correlacion 0,9925; en +-1 minuto, -0,02); barrido de +-15 h tambien en 0 | cumple |
+| apertura y cierre | 4 semanas por fuente, todas a las 17:00 de Nueva York exactas | cumple |
+| huecos | ninguno de mas de 60 minutos fuera del fin de semana; bajo cobertura solo las 4 franjas [18,24) de los viernes | informativo |
+| horario de verano | enero no tiene cambios de hora (se vera en la corrida completa) | - |
+| spread Dukascopy | mediana 0,2-0,3 pips; 1,1 pips a las 22 UTC (cierre de Nueva York); maximo 9,3; ninguna barra con mas de 10 | informativo |
+| extremos por franja | mediana 0,1 pip y p95 0,3 pip, en H y en L (76 franjas) | informativo |
+| rupturas coincidentes | 76 franjas comparables, acuerdo 100%; de las 62 que rompen igual, 93,5% a 2 minutos o menos y 88,7% en el mismo minuto | >= 90%: cumple |
+
+**Estimacion para la corrida completa** (con los tamanos del piloto):
+- Crudos: Dukascopy ~780 MB (CSV, ~22 MB por ano y lado); HistData ~60 MB.
+- Procesados: Dukascopy ~320 MB; HistData ~120 MB.
+- Maquina: HistData ~8 min de descarga; conversion ~5 min; control de calidad
+  ~8-10 min (el barrido amplio de zona tarda ~16 s por ano). Mas la
+  exportacion manual de Dukascopy.
+
+Commits del piloto: `d196780` (barrido amplio de zona), `10dbfc7` (lector con
+coma decimal). Tests: 299 pasan, 0 avisos. `registro/aperturas.md` sin
+cambios en esta sesion (ninguna lectura toco validacion).
