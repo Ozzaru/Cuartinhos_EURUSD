@@ -234,3 +234,60 @@ def test_la_conversion_de_dukascopy_junta_bid_y_ask(entorno):
     marcas = cargador.diagnostico(tabla, "dukascopy")
     assert marcas["plana"].tolist() == [False, True]
     assert not os.path.exists(os.path.join(cfg.RUTA_PROCESADOS, "_partes_dukascopy"))
+
+
+# -----------------------------------------------------------------------------
+#  Proteccion del sellado por el nombre (incidente del 2026-10-01)
+# -----------------------------------------------------------------------------
+@pytest.mark.parametrize("nombre, fin", [
+    ("EURUSD_1 Min_Bid_2003.05.04_2020.12.31.csv", "2020-12-31"),
+    ("EURUSD_1 Min_Ask_2015.12.31_2016.02.02.csv", "2016-02-02"),
+    ("EURUSD_1 Min_Ask_2003.05.04_2026.10.01.csv", "2026-10-01"),
+    ("EURUSD_Candlestick_1_M_BID_01.01.2016-31.01.2016.csv", "2016-01-31"),
+    ("EURUSD_1 Min_Bid.csv", None),
+])
+def test_la_fecha_final_sale_del_nombre(nombre, fin):
+    esperado = None if fin is None else pd.Timestamp(fin).date()
+    assert manifiesto.fecha_final_en_nombre(nombre) == esperado
+
+
+@pytest.mark.parametrize("nombre", [
+    "EURUSD_1 Min_Ask_2003.05.04_2026.10.01.csv",               # el del incidente
+    "EURUSD_1 Min_Bid_2020.12.01_2021.01.01.csv",               # un dia del sellado
+    "EURUSD_Candlestick_1_M_BID_01.12.2020-01.01.2021.csv",     # formato del exportador web
+    "EURUSD_1 Min_Bid.csv",                                     # sin fecha final: tampoco
+])
+def test_el_registro_rechaza_sin_leerlo_un_crudo_que_llega_al_sellado(entorno, monkeypatch, nombre):
+    cfg, repo = entorno
+    carpeta = os.path.join(cfg.RUTA_CRUDOS, "dukascopy")
+    os.makedirs(carpeta)
+    bueno = os.path.join(carpeta, "EURUSD_1 Min_Ask_2003.05.04_2020.12.31.csv")
+    malo = os.path.join(carpeta, nombre)
+    for ruta in (bueno, malo):
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write("Time (UTC),Open,High,Low,Close,Volume\n")
+
+    def prohibido(*args, **kwargs):
+        raise AssertionError("se intento leer un crudo que el nombre ya rechazaba")
+    monkeypatch.setattr(manifiesto, "sha256", prohibido)
+    monkeypatch.setattr(formatos, "dukascopy_jforex", prohibido)
+
+    with pytest.raises(manifiesto.SelladoError, match="sellado"):
+        manifiesto.registrar(malo, "dukascopy", "x", cfg=cfg, repo=repo)
+    # Si uno de la carpeta llega al sellado, no se registra ninguno.
+    with pytest.raises(manifiesto.SelladoError, match="no se registro nada"):
+        manifiesto.registrar_manuales("dukascopy", cfg=cfg, repo=repo)
+    assert manifiesto.leer(repo) == {}
+    # Y el cargador no lo convierte, aunque alguien lo hubiera registrado a mano.
+    with pytest.raises(manifiesto.SelladoError):
+        cargador.convertir("dukascopy", "2016-01-01", "2016-01-31", cfg=cfg, repo=repo)
+
+
+def test_un_nombre_hasta_el_31_de_diciembre_de_2020_si_se_registra(entorno):
+    cfg, repo = entorno
+    carpeta = os.path.join(cfg.RUTA_CRUDOS, "dukascopy")
+    os.makedirs(carpeta)
+    for lado in ("Bid", "Ask"):
+        with open(os.path.join(carpeta, f"EURUSD_1 Min_{lado}_2003.05.04_2020.12.31.csv"), "w") as f:
+            f.write("x\n")
+    assert len(manifiesto.registrar_manuales("dukascopy", cfg=cfg, repo=repo)) == 2

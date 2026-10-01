@@ -355,6 +355,9 @@ def _crudos(fuente, patron, cfg, repo):
     archivos = sorted(glob.glob(os.path.join(cfg.RUTA_CRUDOS, fuente, patron)))
     if not archivos:
         raise FileNotFoundError(f"no hay crudos de {fuente} en {cfg.RUTA_CRUDOS}")
+    if fuente == "dukascopy":
+        for a in archivos:       # por el nombre, antes de leer nada (incidente del 2026-10-01)
+            manifiesto.exigir_nombre_antes_del_sellado(a, cfg)
     for a in archivos:
         manifiesto.verificar(a, cfg, repo)
     return archivos

@@ -51,8 +51,7 @@ _FORMULARIO = re.compile(r'<form id="file_down"(.*?)</form>', re.S)
 _CAMPO = re.compile(r'<input type="hidden" name="(\w+)" id="\w+" value="([^"]*)"')
 
 
-class SelladoError(PermissionError):
-    """Se pidio algo del tramo sellado (o posterior) antes de la Etapa 5."""
+SelladoError = manifiesto.SelladoError   # una sola clase para todo rechazo por el sellado
 
 
 def exigir_antes_del_sellado(desde, hasta, cfg=None):

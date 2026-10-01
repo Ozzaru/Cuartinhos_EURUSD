@@ -14,6 +14,11 @@ unico de los datos que va al repositorio. Sirve para dos cosas:
 Aqui los archivos de precios se leen como bytes, solo para calcular la huella.
 Nunca se interpretan.
 
+Proteccion del sellado (incidente del 2026-10-01): un CSV de Dukascopy se
+registra solo si su NOMBRE declara una fecha final anterior al inicio del
+sellado. Se revisa antes de calcular la huella, o sea sin leer el archivo. Un
+nombre sin fecha final reconocible tambien se rechaza.
+
 Uso:
     python -m fuentes.manifiesto --registrar-manuales dukascopy
     python -m fuentes.manifiesto --verificar
@@ -23,6 +28,7 @@ import csv
 import datetime as dt
 import hashlib
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -41,6 +47,45 @@ ORIGEN_JFOREX = ("exportacion manual: JForex, Historical Data Manager (cuenta de
 
 class ManifiestoError(RuntimeError):
     """Un crudo no esta registrado, o cambio desde que se registro."""
+
+
+class SelladoError(PermissionError):
+    """Se pidio algo del tramo sellado (o posterior) antes de la Etapa 5."""
+
+
+# Fecha final en el nombre de una exportacion de Dukascopy:
+#   JForex:          ..._AAAA.MM.DD_AAAA.MM.DD.csv   (EURUSD_1 Min_Bid_2003.05.04_2020.12.31.csv)
+#   exportador web:  ..._DD.MM.AAAA-DD.MM.AAAA.csv   (EURUSD_Candlestick_1_M_BID_01.01.2016-31.01.2016.csv)
+_FIN_JFOREX = re.compile(r"_\d{4}\.\d{2}\.\d{2}_(\d{4})\.(\d{2})\.(\d{2})\.csv$", re.IGNORECASE)
+_FIN_WEB = re.compile(r"_\d{2}\.\d{2}\.\d{4}-(\d{2})\.(\d{2})\.(\d{4})\.csv$", re.IGNORECASE)
+
+
+def fecha_final_en_nombre(nombre):
+    """La fecha final que declara el nombre de una exportacion de Dukascopy, o None."""
+    m = _FIN_JFOREX.search(nombre)
+    if m:
+        return dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    m = _FIN_WEB.search(nombre)
+    if m:
+        return dt.date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+    return None
+
+
+def exigir_nombre_antes_del_sellado(ruta, cfg=None):
+    """
+    Rechaza, SIN abrirlo, un crudo de Dukascopy cuyo nombre no declare una
+    fecha final anterior a DESCARGA_TOPE (el inicio del sellado).
+    """
+    cfg = cfg or config
+    nombre = os.path.basename(ruta)
+    fin = fecha_final_en_nombre(nombre)
+    tope = dt.date.fromisoformat(cfg.DESCARGA_TOPE)
+    if fin is None:
+        raise SelladoError(f"{nombre}: el nombre no dice hasta que fecha llega; no se registra "
+                           "ni se lee (se exige una fecha final anterior al sellado)")
+    if fin >= tope:
+        raise SelladoError(f"{nombre}: el nombre dice que llega al {fin}, desde el {tope} es el "
+                           "tramo sellado. No se registra ni se lee: hay que borrarlo y re-exportar.")
 
 
 def sha256(ruta):
@@ -78,6 +123,8 @@ def _escribir(filas, repo=None):
 
 def registrar(ruta, fuente, url, fecha_utc=None, cfg=None, repo=None):
     """Agrega (o reemplaza) la fila de un crudo y devuelve esa fila."""
+    if fuente == "dukascopy":
+        exigir_nombre_antes_del_sellado(ruta, cfg)      # antes de leer un solo byte
     filas = leer(repo)
     fila = {
         "archivo": relativa(ruta, cfg),
@@ -118,11 +165,21 @@ def registrar_manuales(fuente, origen=ORIGEN_JFOREX, cfg=None, repo=None):
     cfg = cfg or config
     carpeta = os.path.join(cfg.RUTA_CRUDOS, fuente)
     ya = leer(repo)
+    candidatos = [os.path.join(carpeta, n) for n in sorted(os.listdir(carpeta))]
+    candidatos = [r for r in candidatos if os.path.isfile(r) and relativa(r, cfg) not in ya]
+    if fuente == "dukascopy":
+        # Todos los nombres se revisan antes de leer nada: si uno llega al
+        # sellado, no se registra ninguno.
+        malos = []
+        for ruta in candidatos:
+            try:
+                exigir_nombre_antes_del_sellado(ruta, cfg)
+            except SelladoError as error:
+                malos.append(str(error))
+        if malos:
+            raise SelladoError("no se registro nada:\n  " + "\n  ".join(malos))
     nuevas = []
-    for nombre in sorted(os.listdir(carpeta)):
-        ruta = os.path.join(carpeta, nombre)
-        if not os.path.isfile(ruta) or relativa(ruta, cfg) in ya:
-            continue
+    for ruta in candidatos:
         fecha = dt.datetime.fromtimestamp(os.path.getmtime(ruta), dt.timezone.utc)
         nuevas.append(registrar(ruta, fuente, origen, fecha.strftime("%Y-%m-%dT%H:%M:%SZ"),
                                 cfg, repo))
