@@ -171,7 +171,7 @@ def reuniones_fomc(html):
     return salida
 
 
-_FECHA_URL_FED = re.compile(r"(?:monetary|/)(\d{4})(\d{2})(\d{2})(?:a\.htm|/default\.htm|/)$")
+_FECHA_URL_FED = re.compile(r"(?:monetary|/)(\d{4})(\d{2})(\d{2})(?:[a-z]?\.htm|/default\.htm|/)$")
 
 
 def fecha_de_url_fomc(url):
