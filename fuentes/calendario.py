@@ -12,6 +12,9 @@ Salidas (versionadas):
       url          el comunicado
   calendario/excluidos.csv   lo que aparece en las fuentes y NO cuenta, con el
                              motivo (no programado, cancelado, sin comunicado).
+  calendario/pendientes.csv  anuncios que SI cuentan pero cuya hora no aparece
+                             en la fuente oficial. No entran a anuncios.csv
+                             hasta que el grupo decida (no se adivina la hora).
 
 Reglas (pre-registro 4.8):
   - Fed: comunicados de las reuniones PROGRAMADAS del FOMC, desde las paginas
@@ -20,7 +23,9 @@ Reglas (pre-registro 4.8):
     reunion sin comunicado. La hora sale del comunicado ("For release at 2:15
     p.m. EST"). Los mas antiguos dicen "For immediate release", sin hora:
     entonces sale de las minutas de esa misma reunion ("...statement to be
-    released at 2:15 p.m.").
+    released at 2:15 p.m."). Si tampoco las minutas la dicen (las de 2003
+    dicen "to be released shortly after the meeting"), el anuncio va a
+    pendientes.csv.
   - BLS: Employment Situation (empleo) y Consumer Price Index (ipc). La fecha
     real sale de las paginas de archivo de cada serie, que listan cada
     comunicado con su fecha de publicacion (tambien los atrasados, como los de
@@ -62,6 +67,7 @@ from fuentes import manifiesto  # noqa: E402
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SALIDA = os.path.join("calendario", "anuncios.csv")
 SALIDA_EXCLUIDOS = os.path.join("calendario", "excluidos.csv")
+SALIDA_PENDIENTES = os.path.join("calendario", "pendientes.csv")
 COLUMNAS = ["t_utc", "tipo", "fecha_local", "hora_local", "zona", "fuente_hora", "url"]
 
 FED = "https://www.federalreserve.gov"
@@ -196,7 +202,7 @@ def fecha_del_comunicado(html):
 
 
 def fomc(cfg, repo):
-    anuncios, excluidos = [], []
+    anuncios, excluidos, pendientes = [], [], []
     for anio in range(cfg.CALENDARIO_ANIOS[0], cfg.CALENDARIO_ANIOS[1] + 1):
         url_anio = f"{FED}/monetarypolicy/fomchistorical{anio}.htm"
         for r in reuniones_fomc(pagina(url_anio, cfg, repo)):
@@ -213,16 +219,18 @@ def fomc(cfg, repo):
                 raise CalendarioError(f"{url}: la fecha del enlace ({fecha}) y la del "
                                       f"comunicado ({declarada}) no coinciden")
             hora, fuente_hora = hora_del_comunicado(html), "comunicado"
-            if hora is None:
-                if r["minutas"] is None:
-                    raise CalendarioError(f"{url}: el comunicado no dice la hora y no hay minutas")
-                hora = hora_de_las_minutas(pagina(urllib.parse.urljoin(FED, r["minutas"]), cfg, repo))
+            url_minutas = urllib.parse.urljoin(FED, r["minutas"]) if r["minutas"] else ""
+            if hora is None and url_minutas:
+                hora = hora_de_las_minutas(pagina(url_minutas, cfg, repo))
                 fuente_hora = "minutas de la reunion"
-                if hora is None:
-                    raise CalendarioError(f"{url}: ni el comunicado ni las minutas dicen la hora")
+            if hora is None:
+                pendientes.append({"tipo": "fomc", "fecha_local": fecha.isoformat(),
+                                   "motivo": "ni el comunicado ni las minutas dicen la hora",
+                                   "url": url, "url_minutas": url_minutas})
+                continue
             anuncios.append(_fila(fecha, hora, "fomc", cfg.CALIDAD_ZONA_NUEVA_YORK,
                                   fuente_hora, url))
-    return anuncios, excluidos
+    return anuncios, excluidos, pendientes
 
 
 # -----------------------------------------------------------------------------
@@ -319,7 +327,7 @@ def armar(cfg=None, repo=None):
     cfg = cfg or config
     repo = repo or RAIZ
     agente(con_contacto=True)          # falla antes de pedir nada si falta el contacto
-    fed, fed_fuera = fomc(cfg, repo)
+    fed, fed_fuera, pendientes = fomc(cfg, repo)
     bls_filas, verificados = bls(cfg, repo)
     bce_filas, bce_fuera = bce(cfg, repo)
     anuncios = pd.DataFrame(fed + bls_filas + bce_filas, columns=COLUMNAS)
@@ -327,21 +335,25 @@ def armar(cfg=None, repo=None):
     if anuncios.duplicated(["t_utc", "tipo"]).any():
         raise CalendarioError("hay anuncios repetidos")
     excluidos = pd.DataFrame(fed_fuera + bce_fuera, columns=["tipo", "fecha", "motivo", "url"])
-    return anuncios, excluidos, pd.DataFrame(verificados)
+    pendientes = pd.DataFrame(pendientes, columns=["tipo", "fecha_local", "motivo", "url", "url_minutas"])
+    return anuncios, excluidos, pd.DataFrame(verificados), pendientes
 
 
 def main(argv=None):
     argparse.ArgumentParser(description="Calendario de anuncios (pre-registro 4.8)").parse_args(argv)
-    anuncios, excluidos, verificados = armar()
+    anuncios, excluidos, verificados, pendientes = armar()
     os.makedirs(os.path.join(RAIZ, "calendario"), exist_ok=True)
     anuncios.to_csv(os.path.join(RAIZ, SALIDA), index=False, lineterminator="\n")
     excluidos.to_csv(os.path.join(RAIZ, SALIDA_EXCLUIDOS), index=False, lineterminator="\n")
+    pendientes.to_csv(os.path.join(RAIZ, SALIDA_PENDIENTES), index=False, lineterminator="\n")
     anios = pd.to_datetime(anuncios["t_utc"]).dt.year
     print(pd.crosstab(anios, anuncios["tipo"]).to_string())
     print("\nExcluidos:\n" + excluidos.to_string(index=False))
     print("\nVerificacion de la hora del BLS:\n" + verificados.to_string(index=False))
     print("\nHoras locales por tipo:\n" + anuncios.groupby(["tipo", "hora_local", "fuente_hora"])
           .size().to_string())
+    print(f"\nPENDIENTES (hora no dicha por la fuente): {len(pendientes)}\n"
+          + (pendientes.to_string(index=False) if len(pendientes) else ""))
 
 
 if __name__ == "__main__":
