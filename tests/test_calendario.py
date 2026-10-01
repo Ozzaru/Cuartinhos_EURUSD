@@ -54,6 +54,7 @@ def test_hora_y_fecha_de_los_comunicados_de_la_fed():
     assert calendario.hora_de_las_minutas(minutas) == (14, 15)
     assert calendario.fecha_de_url_fomc("/boarddocs/press/monetary/2003/20030506/default.htm") == dt.date(2003, 5, 6)
     assert calendario.fecha_de_url_fomc("/newsevents/pressreleases/monetary20160127a.htm") == dt.date(2016, 1, 27)
+    assert calendario.fecha_de_url_fomc("/boarddocs/press/monetary/2005/20050920/") == dt.date(2005, 9, 20)
 
 
 def test_comunicados_del_bls_salen_de_la_pagina_de_archivo():
