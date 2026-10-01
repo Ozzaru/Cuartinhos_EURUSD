@@ -2330,3 +2330,67 @@ fuentes, enero de 2016:
 Commits del piloto: `d196780` (barrido amplio de zona), `10dbfc7` (lector con
 coma decimal). Tests: 299 pasan, 0 avisos. `registro/aperturas.md` sin
 cambios en esta sesion (ninguna lectura toco validacion).
+
+### INCIDENTE: exportacion accidental que incluye el tramo sellado (2026-10-01)
+
+**Que paso.** Al exportar el periodo completo de Dukascopy en JForex, el rango
+quedo por error en 01.01.2003 - 31.12.2026. JForex genero dos archivos que
+incluyen el tramo sellado (desde el 01-01-2021), segun lo informo el grupo:
+
+| archivo | bytes | modificado | sha256 |
+|---|---|---|---|
+| `EURUSD_1 Min_Ask_2003.05.04_2026.10.01.csv` | 513.842.886 | 2026-10-01 22:30:45 | `68195c30431667a6f8555e0cfefce3bc8623ae632284ff16a17f90ba46ff9995` |
+| `EURUSD_1 Min_Bid_2003.05.04_2026.10.01.csv` | 513.940.194 | 2026-10-01 22:32:33 | `a7f782ffdf26afe71984d3344e546da239fc5da5c7de802c0ece35012f6d03e0` |
+
+Las horas son las que informo el grupo y calzan con UTC: los archivos
+re-exportados se escribieron a las 22:44 UTC (19:44 hora local, UTC-3).
+
+**No se leyeron con codigo.** Ningun programa del proyecto los abrio: no se
+registraron en el manifiesto, no se convirtieron y el cargador nunca los vio.
+Cuando Claude retomo el trabajo ya no existian.
+
+**Excel (complemento informado despues).** La primera version del grupo decia
+que nadie los habia abierto. Despues se informo que, antes de borrarlos, se
+abrieron por error unos segundos en Excel: segun los recientes de Windows, a
+las 22:41, el Bid y el Ask de 2003-2026 y el Ask del piloto. Excel solo carga
+el primer millon de filas (1.048.576), o sea desde mayo de 2003: con unas
+370.000 filas por ano, eso llega hasta comienzos de 2006, dentro del
+desarrollo. No se mostro nada del sellado.
+
+**Verificaciones de Claude:**
+- El Ask del piloto (`EURUSD_1 Min_Ask_2015.12.31_2016.02.02.csv`) sigue
+  coincidiendo con su sha256 del manifiesto (`77012e3d...f8da3`, 1.872.436
+  bytes): Excel no lo modifico. El Bid del piloto tambien coincide
+  (`2c7409c6...19e3`).
+- Los dos archivos del incidente no estan: busqueda por nombre en
+  `C:\WorkSpace` y en el perfil (Descargas, Documentos, Escritorio), sin
+  resultados; la papelera (11 elementos) no tiene ninguno; el cache de JForex
+  (`C:\Users\sanch\AppData\Local\Programs\JForex4\.cache`) ya no existe. Solo
+  se miraron nombres y metadatos.
+
+**Se borraron y se re-exporto solo hasta 2020:**
+`EURUSD_1 Min_Ask_2003.05.04_2020.12.31.csv` (387.656.145 bytes) y
+`EURUSD_1 Min_Bid_2003.05.04_2020.12.31.csv` (387.704.988 bytes). Todavia no
+se registran ni se leen: eso es el paso 3.
+
+**Registro.** Linea "incidente: descarga accidental que incluye el sellado; no
+leída; borrada" en `registro/aperturas.md` (2026-10-01 23:08:44 UTC, commit
+`86dc1ae`). Esa linea usa el texto que pidio el grupo; el episodio de Excel
+queda descrito aqui.
+
+**Proteccion nueva** (commit `86dc1ae`): el registro de crudos rechaza, sin
+leerlo, todo CSV de Dukascopy cuyo nombre no declare una fecha final anterior
+al 2021-01-01 (`manifiesto.exigir_nombre_antes_del_sellado`). Se revisa antes
+de calcular la huella, en `registrar` y en `registrar_manuales` (si un archivo
+falla no se registra ninguno), y el cargador lo repite antes de convertir. Un
+nombre sin fecha final tambien se rechaza. Tests en `test_fuentes.py` (el test
+falla si se intenta leer el archivo); 309 pasan, 0 avisos.
+- Lo que el nombre no garantiza: en el piloto, un archivo con fecha final
+  "2016.02.02" llego hasta las 02:59 UTC de ese dia (el selector trabaja en
+  hora local). Con "2020.12.31" el contenido queda dentro de 2020, pero la
+  conversion igual revisa cada minuto y rechaza cualquiera desde el
+  2021-01-01.
+
+**Pendiente para el grupo.** El pre-registro (2.2 y 2.3) dice que el sellado
+no se descarga hasta la Etapa 5. Como se declara este incidente es decision
+del grupo (el pre-registro se edita en `main`, no en esta rama).

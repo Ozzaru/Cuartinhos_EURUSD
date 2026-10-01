@@ -10,3 +10,4 @@ lectura, escrita ANTES de entregar o convertir los datos. Clases:
 
 | fecha UTC | clase | tramo | fuente | proposito | rango (UTC) | commit | usuario de git |
 |---|---|---|---|---|---|---|---|
+| 2026-10-01 23:08:44 | incidente: descarga accidental que incluye el sellado; no leída; borrada | desarrollo, validacion, sellado | dukascopy | - | 2003-05-04 a 2026-10-01 | 86dc1ae63277469921b45c8836b80c7922546692 | Joel Vásquez |
