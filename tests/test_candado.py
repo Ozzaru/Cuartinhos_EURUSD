@@ -328,7 +328,8 @@ def test_solo_el_cargador_lee_los_archivos_de_precios():
     """
     pueden_ver_rutas = {"config.py", os.path.join("fuentes", "cargador.py"),
                         os.path.join("fuentes", "manifiesto.py"),
-                        os.path.join("fuentes", "descarga_histdata.py")}
+                        os.path.join("fuentes", "descarga_histdata.py"),
+                        os.path.join("fuentes", "calendario.py")}
     for carpeta in ("motor", "simulacion", "experimentos", "fuentes"):
         for nombre in os.listdir(os.path.join(RAIZ, carpeta)):
             if not nombre.endswith(".py"):

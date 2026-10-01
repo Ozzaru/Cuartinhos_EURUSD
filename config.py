@@ -352,3 +352,13 @@ CALIDAD_ACUERDO_MIN = 0.90                   # acuerdo minimo en "hay ruptura y 
 CALIDAD_ACUERDO_ALERTA = 0.80                # por debajo de esto se detiene la etapa de datos
 CALIDAD_TOLERANCIA_HORA_MIN = 2              # diferencia maxima de hora (minutos) para contar dos rupturas como simultaneas
 CALIDAD_MARGEN_DIAS = 3                      # dias del ano anterior que se leen como contexto (referencia, primera semana); no se cuentan
+
+# Lista cerrada de anuncios (pre-registro 4.8): calendario/anuncios.csv, armado
+# desde las fuentes oficiales por fuentes/calendario.py. No tiene precios.
+CALENDARIO_ANIOS = (2003, 2020)              # anos que cubre el calendario (los de los datos descargados)
+CALENDARIO_PAUSA_SEG = 3                     # pausa entre pedidos a las fuentes del calendario
+ZONA_BCE = "Europe/Berlin"                   # zona de la hora del BCE (CET / CEST)
+HORA_BLS = (8, 30)                           # hora (ET) de Employment Situation y CPI; se verifica en una muestra de comunicados
+VERIFICACION_BLS_ANIOS = (2003, 2008, 2013, 2018)   # anos de la muestra (primer comunicado del ano de cada serie, mas los atrasados de oct-2013)
+HORA_BCE = (13, 45)                          # regla publicada del BCE para sus decisiones (CET), hasta el 20-07-2022
+HORA_BCE_DESDE_2022 = ("2022-07-21", (14, 15))   # desde esa fecha, 14:15 CET
