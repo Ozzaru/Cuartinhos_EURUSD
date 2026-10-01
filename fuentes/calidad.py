@@ -116,6 +116,37 @@ def _dentro(hora, rango_horas):
 
 
 # -----------------------------------------------------------------------------
+#  0. Formato y escala
+# -----------------------------------------------------------------------------
+def _decimales(valores, maximo=8):
+    """Menor numero de decimales con que se escriben todos los precios."""
+    valores = valores[np.isfinite(valores)]
+    for k in range(maximo + 1):
+        escalados = valores * 10 ** k
+        if np.all(np.abs(escalados - np.round(escalados)) < 1e-6):
+            return k
+    return np.nan
+
+
+def chequeo_formato(datos, fuente, anio, cfg):
+    """Que trae el archivo: primera y ultima barra, escala, decimales y volumen."""
+    precios = datos[[f"{lado}_{x}" for lado in ("bid", "ask") for x in LADOS
+                     if f"{lado}_{x}" in datos.columns]].to_numpy(float)
+    fila = {"anio": anio, "fuente": fuente,
+            "primera_barra": datos.index.min(), "ultima_barra": datos.index.max(),
+            "minutos_exactos": bool((datos.index.second == 0).all()
+                                    and (datos.index.microsecond == 0).all()),
+            "precio_min": float(np.nanmin(precios)), "precio_max": float(np.nanmax(precios)),
+            "decimales": _decimales(precios.ravel()),
+            "pct_un_solo_precio": float((datos["bid_high"] == datos["bid_low"]).mean()),
+            "mediana_rango_barra_pips": float(((datos["bid_high"] - datos["bid_low"]) / cfg.PIP).median())}
+    volumen = [c for c in datos.columns if "volumen" in c]
+    fila["volumen_mediano"] = float(datos[volumen[0]].median())
+    fila["volumen_cero"] = float((datos[volumen[0]] == 0).mean())
+    return fila
+
+
+# -----------------------------------------------------------------------------
 #  1. Barras
 # -----------------------------------------------------------------------------
 def chequeo_barras(datos, fuente, anio, cfg):
@@ -132,6 +163,11 @@ def chequeo_barras(datos, fuente, anio, cfg):
     if fuente == "dukascopy":
         un_lado = (datos["bid_volumen"] == 0) != (datos["ask_volumen"] == 0)
         fila["planas_un_solo_lado"] = int(un_lado.sum())
+        # Planas con el mercado abierto (fuera de viernes 22:00 a domingo 21:00
+        # UTC): esas son las que pasan a ser huecos de verdad.
+        dia, hora = datos.index.dayofweek, datos.index.hour
+        finde = (dia == 5) | ((dia == 4) & (hora >= 22)) | ((dia == 6) & (hora < 21))
+        fila["planas_mercado_abierto"] = int((marcas["plana"].to_numpy() & ~finde).sum())
     fila["cumple"] = bool(fila["pct_invalidas"] < cfg.CALIDAD_MAX_INVALIDAS)
     return fila
 
@@ -364,11 +400,12 @@ def _anios(desde, hasta):
 def analizar_anio(datos, anio, a_desde, cfg):
     """Todos los chequeos de un ano. `datos` puede traer un margen antes de `a_desde`."""
     inicio = pd.Timestamp(a_desde.isoformat(), tz="UTC")
-    salida = {k: [] for k in ("barras", "semanas", "huecos", "cobertura", "verano_franjas",
+    salida = {k: [] for k in ("formato", "barras", "semanas", "huecos", "cobertura", "verano_franjas",
                               "spread", "spread_hora", "spread_alto")}
     limpias, barras, cals = {}, {}, {}
     for fuente, tabla in datos.items():
         del_anio = tabla[tabla.index >= inicio]
+        salida["formato"].append(pd.DataFrame([chequeo_formato(del_anio, fuente, anio, cfg)]))
         salida["barras"].append(pd.DataFrame([chequeo_barras(del_anio, fuente, anio, cfg)]))
         limpia = cargador.limpiar(tabla, fuente)
         limpias[fuente] = limpia
@@ -453,6 +490,13 @@ def informe(tablas, desde, hasta, cfg, segundos, titulo="Control de calidad de l
               f"Rango: {desde} a {hasta} (UTC). Generado por `fuentes/calidad.py` en "
               f"{segundos:.0f} s. Pre-registro, seccion 3.3. Solo usa rupturas: si hay, "
               "direccion y minuto.\n"]
+
+    partes.append("## 0. Formato y escala\n")
+    partes.append("Lo que trae cada fuente tal como se convirtio (planas incluidas): primera y "
+                  "ultima barra (hora de apertura, UTC), rango de precios, decimales con que "
+                  "vienen escritos, porcentaje de barras de un solo precio, rango mediano de una "
+                  "barra en pips y volumen.\n")
+    partes.append(_md(t.get("formato"), 5))
 
     partes.append("## 1. Integridad de las barras\n")
     partes.append(f"Criterio: menos de {cfg.CALIDAD_MAX_INVALIDAS:.1%} de barras invalidas "

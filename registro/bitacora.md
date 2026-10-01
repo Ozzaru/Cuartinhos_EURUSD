@@ -2162,3 +2162,97 @@ PDF, etiqueta `prerregistro-v1`, push).
 esta revision.
 
 **Hash de la revision del paso 2**: `6f5afad` (`punto F (paso 2, revision): pre-registro sin OSF, lectura de la pregunta 1 y Reality Check de White`). Sin push.
+
+---
+
+## Punto G — Datos reales: candado, descarga y control de calidad (en curso)
+
+- **Fecha**: 2026-10-01
+- **Rama**: `etapa-datos` (worktree `Cuartinhos_EURUSD_datos`). El pre-registro
+  NO esta congelado: el grupo lo afina en `main`. Esta etapa trabaja a ciegas:
+  se obtienen los datos y se revisa su calidad, sin calcular ningun resultado.
+- **Etiqueta de referencia**: `prerregistro-borrador-1` (el plan antes de
+  descargar).
+
+### Decisiones del grupo sobre el plan (paso 1)
+
+1. **Dukascopy**: sus terminos de uso prohiben el acceso automatizado al sitio
+   sin consentimiento escrito (seccion 3). No se automatiza: la exportacion la
+   hace el grupo a mano con JForex (cuenta demo, Historical Data Manager),
+   EUR/USD, 1 minuto, bid y ask por separado, hora UTC, sin filtro de velas
+   planas. Primero enero de 2016 (piloto); el periodo completo (04-05-2003 a
+   31-12-2020) despues del OK al piloto.
+   - Las velas planas (minutos sin ticks, volumen 0) pasan a faltantes; el
+     control de calidad reporta cuantas hay por ano.
+2. **BLS**: no se bajan los ~430 comunicados. Se usan las paginas de archivo
+   de Employment Situation y CPI (fecha real de cada comunicado) y se
+   verifica la hora de 8:30 ET en una muestra. El contacto que pide el BLS va
+   en una variable de entorno (`CUARTINHOS_CONTACTO`) y no se escribe en el
+   repositorio ni en esta bitacora. Fed y BCE como se propuso, con pausas.
+3. **Cambio en motor**: aprobado, con la condicion de comparar la deteccion
+   antes y despues con igualdad exacta (abajo).
+4. **HistData**: automatizada, con pausas, reintentos y retomable. No publica
+   terminos de uso; no pide registro; el FTP pagado es solo por velocidad.
+5. No se usa ni se modifica `20_Data\descarga_eurusd.py` (otro estudio).
+
+### Cambio en motor (codigo que se va a congelar)
+
+**Por que**: el control de calidad necesita el calendario de franjas y el
+detector de rupturas, pero no puede importar `resultados`, `nula` ni
+`inferencia`. `motor/__init__.py` importaba `resultados` siempre, y
+`eventos.py` tambien (por sigma_ref y el precio en t + M).
+
+**Que cambio** (sin cambiar el comportamiento):
+- `motor/rupturas.py` (nuevo): `umbrales`, `primera`, `primera_ruptura`,
+  `franjas_con_referencia` (la mascara de `franjas_utilizables` sin la
+  condicion de sigma_ref) y `detectar` (solo la ruptura: si hay, direccion y
+  minuto). Solo importa `tiempo`.
+- `eventos.py` usa esas funciones; `franjas_utilizables` =
+  `franjas_con_referencia` & sigma_ref finita.
+- `motor/__init__.py` ya no importa los submodulos al cargarse; `preparar` los
+  importa adentro. Nadie usaba `motor.<submodulo>` despues de un `import motor`
+  (verificado con grep).
+
+**Comparacion exacta antes/despues** (regla del punto E):
+- 6 mercados simulados de 2 anos (semillas 20260916 a 20260921) x 6 variantes
+  de config (principal, umbral "vol", particion UTC, sin excluir la barra
+  ambigua, regla "fuera_en_t_mas_m", umbral de 3 pips) = 36 combinaciones.
+- Se comparo la tabla completa de `motor.preparar` (eventos con retornos y
+  moderadores) con `assert_frame_equal(check_exact=True)`, la mascara de
+  franjas utilizables con `np.array_equal` y el largo del calendario.
+- Foto tomada con el codigo de `debbfbb` (antes de tocar nada); comparacion
+  despues del cambio: **36 de 36 identicas**. Ejemplo de huella (principal,
+  semilla 20260916): 3.531 eventos (1.546 rupturas, 1.328 reingresos, 657
+  sostenidas), sha256 de la tabla `e2f2d5324166e493...`, igual antes y
+  despues.
+- La rama ambigua no aparece en el simulador (sin_excluir_ambigua = principal
+  en los 6 mercados); la cubren los tests de `test_eventos.py` y
+  `test_rupturas.py`.
+- Tests: 244 -> 244 pasan tras el cambio; `test_rupturas.py` amarra que
+  `rupturas.detectar` da las mismas rupturas (franja, direccion y minuto) que
+  `eventos.detectar` con el umbral de 1 pip, el "vol" y el de 3 pips.
+
+### Candado (regla 3), antes de leer un solo dato
+
+Commit `2292d7f`, anterior a la primera descarga.
+- `fuentes/cargador.py` es la unica lectura de precios (un test revisa que
+  ningun otro modulo lea parquet ni conozca las rutas de los precios, salvo los
+  de datos).
+- Sin la etiqueta `prerregistro-v1`: solo entrega datos a `fuentes.calidad`
+  (proposito "calidad"; el cargador revisa el modulo que llama), en cualquier
+  tramo menos el sellado. Todo otro pedido es un error.
+- Lectura que toca validacion: exige arbol de git limpio y deja ANTES una
+  linea "lectura de calidad" en `registro/aperturas.md` (fecha UTC, clase,
+  tramo, fuente, proposito, rango, commit y usuario de git). Unica excepcion
+  al arbol limpio: el propio `registro/aperturas.md`, que es lo que el
+  cargador escribe (sin ella, la segunda lectura de una corrida no podria
+  hacerse). La conversion de crudos a parquet sigue la misma regla.
+- Con la etiqueta: seccion 2.4 (desarrollo libre; validacion y sellado con
+  `abrir=`, linea "apertura").
+- Descarga y conversion rechazan toda fecha desde el 01-01-2021.
+- Crudos sin modificar: la conversion verifica tamano y sha256 contra
+  `registro/manifiesto_datos.csv` antes de leer cada archivo.
+- Rutas en `config.py` (seccion 12), cambiables con `CUARTINHOS_CRUDOS` y
+  `CUARTINHOS_PROCESADOS`.
+- Tests nuevos: `test_candado.py` (24), `test_fuentes.py` (17),
+  `test_rupturas.py` (7): 292 pasan, 0 avisos.
