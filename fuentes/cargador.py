@@ -373,7 +373,7 @@ def _convertir_histdata(ini, fin, cfg, repo):
                 raise formatos.FormatoError(f"{archivo}: se esperaba un CSV y trae {csvs}")
             with z.open(csvs[0]) as crudo:
                 tabla = formatos.histdata_m1(io.TextIOWrapper(crudo, encoding="ascii"),
-                                             cfg.HISTDATA_HORAS_A_UTC)
+                                             cfg.HISTDATA_HORAS_A_UTC, zona=cfg.HISTDATA_ZONA)
         _exigir_antes_del_tope(tabla.index, archivo, cfg)
         tabla.columns = COLUMNAS_HISTDATA
         dentro = (tabla.index >= ini) & (tabla.index < fin)

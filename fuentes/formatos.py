@@ -67,12 +67,15 @@ def _sin_nulos(tabla, nombre):
         raise FormatoError(f"{nombre}: {filas} filas con campos vacios o no numericos")
 
 
-def histdata_m1(flujo, horas_a_utc):
+def histdata_m1(flujo, horas_a_utc, zona=None):
     """
     Lee un CSV Generic ASCII M1 de HistData.
 
     Devuelve un DataFrame con open, high, low, close (del BID) y volumen, con
-    indice `apertura_utc` en UTC.
+    indice `apertura_utc` en UTC. Con `zona` None, UTC = hora del archivo +
+    `horas_a_utc` (EST fijo, la regla del pre-registro). Con un nombre de zona,
+    la hora del archivo se lee en esa zona (con horario de verano); una hora
+    ambigua o inexistente por el cambio de hora es un error, no se adivina.
     """
     tabla = pd.read_csv(flujo, sep=";", header=None, names=["marca"] + COLUMNAS,
                         dtype={"marca": str}, float_precision="round_trip")
@@ -80,7 +83,11 @@ def histdata_m1(flujo, horas_a_utc):
         raise FormatoError("HistData: archivo vacio")
     _sin_nulos(tabla, "HistData")
     est = pd.to_datetime(tabla["marca"], format="%Y%m%d %H%M%S")
-    indice = pd.DatetimeIndex(est + pd.Timedelta(hours=horas_a_utc)).tz_localize("UTC")
+    if zona is None:
+        indice = pd.DatetimeIndex(est + pd.Timedelta(hours=horas_a_utc)).tz_localize("UTC")
+    else:
+        indice = pd.DatetimeIndex(est).tz_localize(zona, ambiguous="raise",
+                                                   nonexistent="raise").tz_convert("UTC")
     salida = tabla[COLUMNAS].astype(float)
     salida.index = indice.rename("apertura_utc")
     return salida

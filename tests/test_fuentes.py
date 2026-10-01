@@ -336,3 +336,18 @@ def test_la_primera_pasada_cuenta_los_minutos_que_estan_en_un_solo_lado(entorno)
     assert (fila["solo_bid"], fila["solo_ask"]) == (1, 2)
     assert por_archivo["ultima_utc"].tolist() == [pd.Timestamp("2016-01-04 10:02", tz="UTC"),
                                                   pd.Timestamp("2016-01-04 10:04", tz="UTC")]
+
+
+def test_histdata_con_zona_lee_la_hora_de_nueva_york_con_horario_de_verano():
+    texto = "20160103 170000;1.1;1.1;1.1;1.1;0\n20160703 170000;1.1;1.1;1.1;1.1;0\n"
+    fija = formatos.histdata_m1(io.StringIO(texto), 5)
+    ny = formatos.histdata_m1(io.StringIO(texto), 5, zona="America/New_York")
+    # En enero las dos reglas coinciden; en julio la de Nueva York es una hora antes.
+    assert list(fija.index) == [pd.Timestamp("2016-01-03 22:00", tz="UTC"),
+                                pd.Timestamp("2016-07-03 22:00", tz="UTC")]
+    assert list(ny.index) == [pd.Timestamp("2016-01-03 22:00", tz="UTC"),
+                              pd.Timestamp("2016-07-03 21:00", tz="UTC")]
+    # Una hora que no existe en Nueva York (el adelanto de marzo) no se adivina.
+    with pytest.raises(Exception):
+        formatos.histdata_m1(io.StringIO("20160313 023000;1.1;1.1;1.1;1.1;0\n"), 5,
+                             zona="America/New_York")
