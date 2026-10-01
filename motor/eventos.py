@@ -43,33 +43,11 @@ si mas adelante habra huecos de datos, asi que exigirlo seria mirar el futuro.
 import numpy as np
 import pandas as pd
 
-from . import resultados, tiempo
+from . import resultados, rupturas, tiempo
 
 COLUMNAS = ["id_franja", "fecha_londres", "idx_franja", "tipo", "direccion",
             "t_evento_utc", "t_ruptura_utc", "extremo_roto", "precio_evento",
             "dia_semana", "pos_franja", "t_evento_ns", "t_ruptura_ns", "sigma_ref"]
-
-
-def _umbrales(cfg, sigma_k, H, L):
-    """
-    Cuanto hay que penetrar el extremo para que cuente como ruptura.
-
-    En modo "pips" es una distancia fija. En modo "vol" es proporcional a la
-    volatilidad de referencia y al propio extremo:
-        umbral = UMBRAL_VOL * sigma_ref * extremo
-    El extremo (H o L) es 100% pasado, asi que el umbral tambien lo es.
-    """
-    if cfg.UMBRAL_MODO == "pips":
-        u = cfg.UMBRAL_PIPS * cfg.PIP
-        return u, u
-    if cfg.UMBRAL_MODO == "vol":
-        return cfg.UMBRAL_VOL * sigma_k * H, cfg.UMBRAL_VOL * sigma_k * L
-    raise ValueError(f"UMBRAL_MODO desconocido: {cfg.UMBRAL_MODO}")
-
-
-def _primera(mascara):
-    """Posicion del primer True, o -1 si no hay ninguno."""
-    return int(np.argmax(mascara)) if mascara.any() else -1
 
 
 def franjas_utilizables(cal, sigma, cfg):
@@ -79,37 +57,12 @@ def franjas_utilizables(cal, sigma, cfg):
     Es la misma condicion que usa la hipotesis nula para decidir de que minutos
     se puede sortear. Vive en una sola funcion justamente para que las dos
     cosas no se separen nunca.
-    """
-    n = len(cal)
-    cobertura = cal["cobertura"].to_numpy(float)
-    H_ref = cal["H"].to_numpy(float)
-    L_ref = cal["L"].to_numpy(float)
-    i0_col = cal["i0"].to_numpy()
-    i1_col = cal["i1"].to_numpy()
-    sesion_col = cal["sesion"].to_numpy()
-    hueco_col = cal["hueco_inicial"].to_numpy(float)
 
-    k = np.arange(n)
-    hay_referencia = k >= 1
-    ref = np.maximum(k - 1, 0)
-    sirve = (
-        hay_referencia
-        & (cobertura[ref] >= cfg.COBERTURA_MIN_REFERENCIA)
-        & (i1_col > i0_col)
-        & np.isfinite(H_ref[ref]) & np.isfinite(L_ref[ref])
-        & np.isfinite(sigma)
-    )
-    if not cfg.REFERENCIA_CRUZA_CIERRE:
-        # Dos condiciones, y hacen falta las dos:
-        #  - la referencia y la franja k comparten sesion. Como las sesiones van
-        #    en aumento, eso descarta cualquier cierre ENTRE una y otra.
-        #  - la referencia no empezo con el mercado cerrado. Es el caso del
-        #    domingo por la tarde: la franja figura, pero sus datos parten
-        #    recien cuando el mercado abre, ya avanzada la franja.
-        sirve &= sesion_col[ref] == sesion_col
-        sirve &= sesion_col >= 0
-        sirve &= hueco_col[ref] <= cfg.HUECO_CIERRE_MIN
-    return sirve
+    Desde el punto G se arma en dos partes: la referencia valida
+    (`rupturas.franjas_con_referencia`, que tambien usa el control de calidad)
+    y la sigma_ref finita, que es lo unico que depende de `resultados`.
+    """
+    return rupturas.franjas_con_referencia(cal, cfg) & np.isfinite(sigma)
 
 
 def detectar(barras, cal, cfg, sigma=None):
@@ -141,28 +94,12 @@ def detectar(barras, cal, cfg, sigma=None):
         mid_c = barras.mid_c[i0:i1]
         cierre = barras.cierre_ns[i0:i1]
 
-        u_alc, u_baj = _umbrales(cfg, sigma[k], H, L)
-        i_alc = _primera(mid_h > H + u_alc)
-        i_baj = _primera(mid_l < L - u_baj)
-        if i_alc < 0 and i_baj < 0:
-            continue
+        u_alc, u_baj = rupturas.umbrales(cfg, sigma[k], H, L)
+        i_rup, direccion, ambigua = rupturas.primera_ruptura(mid_h, mid_l, H, L,
+                                                             u_alc, u_baj, cfg)
+        if direccion == 0:
+            continue                       # no rompe, o la barra es ambigua
 
-        if i_alc >= 0 and i_alc == i_baj:
-            # La misma barra rompe los dos lados.
-            if cfg.EXCLUIR_BARRA_AMBIGUA:
-                continue
-            # Desempate declarado: gana el lado que penetro mas, medido en
-            # veces el umbral de ese lado. Solo se usa si el grupo decide
-            # apagar EXCLUIR_BARRA_AMBIGUA.
-            penetra_alc = (mid_h[i_alc] - H) / u_alc if u_alc > 0 else np.inf
-            penetra_baj = (L - mid_l[i_baj]) / u_baj if u_baj > 0 else np.inf
-            direccion = 1 if penetra_alc >= penetra_baj else -1
-        elif i_baj < 0 or (0 <= i_alc < i_baj):
-            direccion = 1
-        else:
-            direccion = -1
-
-        i_rup = i_alc if direccion == 1 else i_baj
         extremo = H if direccion == 1 else L
         t_rup = int(cierre[i_rup])
 
@@ -193,7 +130,7 @@ def detectar(barras, cal, cfg, sigma=None):
         posterior = np.zeros(len(mid_c), dtype=bool)
         posterior[i_rup + 1:] = True
         candidatas = dentro & posterior & (cierre <= limite)
-        i_re = _primera(candidatas)
+        i_re = rupturas.primera(candidatas)
         if i_re >= 0:
             filas.append({**base, "tipo": "reingreso", "t_evento_ns": int(cierre[i_re]),
                           "t_evento_utc": tiempo.de_ns(int(cierre[i_re])),

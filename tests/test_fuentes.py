@@ -1,0 +1,206 @@
+# -*- coding: utf-8 -*-
+"""
+Formatos, manifiesto, conversion y que barra cuenta (punto G), con archivos
+pequenos escritos a mano en carpetas temporales.
+"""
+import io
+import os
+import subprocess
+import zipfile
+
+import numpy as np
+import pandas as pd
+import pytest
+
+import ayuda
+from fuentes import cargador, formatos, manifiesto
+
+
+# -----------------------------------------------------------------------------
+#  Formatos
+# -----------------------------------------------------------------------------
+HISTDATA = ("20160103 170000;1.087010;1.087130;1.086980;1.087130;0\n"
+            "20160103 170100;1.087130;1.087200;1.087100;1.087150;0\n")
+
+
+def test_histdata_pasa_de_est_fijo_a_utc_sumando_cinco_horas():
+    tabla = formatos.histdata_m1(io.StringIO(HISTDATA), 5)
+    assert list(tabla.index) == [pd.Timestamp("2016-01-03 22:00", tz="UTC"),
+                                 pd.Timestamp("2016-01-03 22:01", tz="UTC")]
+    assert tabla.index.name == "apertura_utc"
+    assert tabla.iloc[0]["open"] == 1.08701 and tabla.iloc[1]["close"] == 1.08715
+    # En julio tambien +5: EST fijo, sin horario de verano.
+    julio = formatos.histdata_m1(io.StringIO("20160704 120000;1.1;1.1;1.1;1.1;0\n"), 5)
+    assert julio.index[0] == pd.Timestamp("2016-07-04 17:00", tz="UTC")
+
+
+def test_histdata_rechaza_campos_vacios():
+    with pytest.raises(formatos.FormatoError):
+        formatos.histdata_m1(io.StringIO("20160103 170000;1.08;;1.08;1.08;0\n"), 5)
+
+
+@pytest.mark.parametrize("encabezado, fecha", [
+    ("Time (UTC),Open,High,Low,Close,Volume", "03.01.2016 22:00:00.000"),
+    ("Gmt time,Open,High,Low,Close,Volume", "03.01.2016 22:00:00.000"),
+    ("Time (UTC),Open,High,Low,Close,Volume", "2016.01.03 22:00:00"),
+    ("Time (UTC);Open;High;Low;Close;Volume", "2016-01-03 22:00:00"),
+])
+def test_dukascopy_lee_las_variantes_de_la_exportacion(encabezado, fecha):
+    sep = ";" if ";" in encabezado else ","
+    texto = encabezado + "\n" + sep.join([fecha, "1.08701", "1.08713", "1.08698", "1.08713", "12.5"]) + "\n"
+    trozos = list(formatos.dukascopy_jforex(io.StringIO(texto)))
+    assert len(trozos) == 1
+    tabla = trozos[0]
+    assert tabla.index[0] == pd.Timestamp("2016-01-03 22:00", tz="UTC")
+    assert tabla.iloc[0]["high"] == 1.08713 and tabla.iloc[0]["volumen"] == 12.5
+
+
+@pytest.mark.parametrize("encabezado", ["Time (EET),Open,High,Low,Close,Volume",
+                                        "Time,Open,High,Low,Close,Volume",
+                                        "Time (UTC),Open,High,Low,Close"])
+def test_dukascopy_rechaza_una_hora_sin_zona_declarada_o_columnas_raras(encabezado):
+    texto = encabezado + "\n03.01.2016 22:00:00.000,1.1,1.1,1.1,1.1,1\n"
+    with pytest.raises(formatos.FormatoError):
+        list(formatos.dukascopy_jforex(io.StringIO(texto)))
+
+
+def test_dukascopy_no_adivina_entre_dia_y_mes():
+    texto = "Time (UTC),Open,High,Low,Close,Volume\n01/02/2016 22:00:00,1.1,1.1,1.1,1.1,1\n"
+    with pytest.raises(formatos.FormatoError):
+        list(formatos.dukascopy_jforex(io.StringIO(texto)))
+
+
+# -----------------------------------------------------------------------------
+#  Que barra cuenta
+# -----------------------------------------------------------------------------
+def _duka(filas):
+    idx = pd.date_range("2016-01-04 10:00", periods=len(filas), freq="min", tz="UTC")
+    tabla = pd.DataFrame(filas, index=idx, columns=["bid_open", "bid_high", "bid_low", "bid_close",
+                                                    "ask_open", "ask_high", "ask_low", "ask_close",
+                                                    "bid_volumen", "ask_volumen"])
+    for x in ("open", "high", "low", "close"):
+        tabla[f"mid_{x}"] = (tabla[f"bid_{x}"] + tabla[f"ask_{x}"]) / 2
+    return tabla[cargador.COLUMNAS_DUKASCOPY]
+
+
+def test_diagnostico_separa_planas_e_invalidas():
+    b, a = 1.1000, 1.1001
+    tabla = _duka([
+        [b, b + 2e-4, b - 1e-4, b + 1e-4, a, a + 2e-4, a - 1e-4, a + 1e-4, 3.0, 2.0],   # sana
+        [b, b, b, b, a, a, a, a, 0.0, 0.0],                                             # plana
+        [b, b, b - 1e-4, b + 1e-4, a, a + 2e-4, a - 1e-4, a + 1e-4, 3.0, 2.0],          # maximo < cierre
+        [b, b + 2e-4, b - 1e-4, b + 1e-4, b, a + 2e-4, a - 1e-4, a + 1e-4, 3.0, 2.0],   # spread 0 en la apertura
+        [b, b + 2e-4, b - 1e-4, b + 1e-4, np.nan, np.nan, np.nan, np.nan, 3.0, np.nan],  # falta el ask
+    ])
+    marcas = cargador.diagnostico(tabla, "dukascopy")
+    assert marcas["plana"].tolist() == [False, True, False, False, False]
+    assert marcas["invalida"].tolist() == [False, False, True, True, True]
+    assert marcas["ohlc_bid"].tolist()[2] and marcas["spread"].tolist()[3]
+    assert marcas["falta_lado"].tolist()[4]
+    assert list(cargador.limpiar(tabla, "dukascopy").index) == [tabla.index[0]]
+
+
+def test_en_histdata_no_hay_planas_y_si_barras_invalidas():
+    idx = pd.date_range("2016-01-04 10:00", periods=2, freq="min", tz="UTC")
+    tabla = pd.DataFrame([[1.1, 1.1, 1.1, 1.1, 0.0], [1.1, 1.0999, 1.0998, 1.1, 0.0]],
+                         index=idx, columns=cargador.COLUMNAS_HISTDATA)
+    marcas = cargador.diagnostico(tabla, "histdata")
+    assert marcas["plana"].tolist() == [False, False]
+    assert marcas["invalida"].tolist() == [False, True]
+
+
+# -----------------------------------------------------------------------------
+#  Manifiesto y conversion
+# -----------------------------------------------------------------------------
+@pytest.fixture
+def entorno(tmp_path):
+    repo = tmp_path / "repo"
+    (repo / "registro").mkdir(parents=True)
+    for args in (["init", "-q"], ["config", "user.name", "Prueba"],
+                 ["config", "user.email", "prueba@ejemplo.invalid"]):
+        subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+    (repo / "registro" / "LEEME.md").write_text("x\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "-c", "commit.gpgsign=false", "commit", "-q", "-m", "x"],
+                   check=True, capture_output=True)
+    cfg = ayuda.cfg_prueba(RUTA_CRUDOS=str(tmp_path / "crudos"),
+                           RUTA_PROCESADOS=str(tmp_path / "procesados"))
+    return cfg, str(repo)
+
+
+def _zip_histdata(cfg, anio, lineas):
+    carpeta = os.path.join(cfg.RUTA_CRUDOS, "histdata")
+    os.makedirs(carpeta, exist_ok=True)
+    ruta = os.path.join(carpeta, f"HISTDATA_COM_ASCII_EURUSD_M1{anio}.zip")
+    with zipfile.ZipFile(ruta, "w") as z:
+        z.writestr(f"DAT_ASCII_EURUSD_M1_{anio}.csv", "".join(lineas))
+        z.writestr(f"DAT_ASCII_EURUSD_M1_{anio}.txt", "informe\n")
+    return ruta
+
+
+def test_el_manifiesto_detecta_un_crudo_modificado(entorno):
+    cfg, repo = entorno
+    ruta = _zip_histdata(cfg, 2016, [HISTDATA])
+    with pytest.raises(manifiesto.ManifiestoError, match="no esta en"):
+        manifiesto.verificar(ruta, cfg, repo)
+    fila = manifiesto.registrar(ruta, "histdata", "https://ejemplo", cfg=cfg, repo=repo)
+    assert fila["archivo"] == "histdata/HISTDATA_COM_ASCII_EURUSD_M12016.zip"
+    assert int(fila["tamano_bytes"]) == os.path.getsize(ruta) and len(fila["sha256"]) == 64
+    manifiesto.verificar(ruta, cfg, repo)
+    with open(ruta, "ab") as f:
+        f.write(b"x")
+    with pytest.raises(manifiesto.ManifiestoError, match="cambio"):
+        manifiesto.verificar(ruta, cfg, repo)
+
+
+def test_la_conversion_de_histdata_queda_en_utc_y_por_ano(entorno):
+    cfg, repo = entorno
+    lineas = [HISTDATA, "20161231 165900;1.05;1.05;1.05;1.05;0\n"]
+    ruta = _zip_histdata(cfg, 2016, lineas)
+    manifiesto.registrar(ruta, "histdata", "https://ejemplo", cfg=cfg, repo=repo)
+    resumen, escritos = cargador.convertir("histdata", "2016-01-01", "2016-12-31", cfg=cfg, repo=repo)
+    assert list(escritos) == [2016] and escritos[2016][1] == 3
+    tabla = pd.read_parquet(escritos[2016][0])
+    assert tabla.index[-1] == pd.Timestamp("2016-12-31 21:59", tz="UTC")
+    assert list(tabla.columns) == cargador.COLUMNAS_HISTDATA
+
+
+def test_la_conversion_no_lee_un_crudo_sin_registrar(entorno):
+    cfg, repo = entorno
+    _zip_histdata(cfg, 2016, [HISTDATA])
+    with pytest.raises(manifiesto.ManifiestoError):
+        cargador.convertir("histdata", "2016-01-01", "2016-12-31", cfg=cfg, repo=repo)
+
+
+def test_un_crudo_con_minutos_del_sellado_no_se_convierte(entorno):
+    cfg, repo = entorno
+    ruta = _zip_histdata(cfg, 2020, ["20201231 185900;1.2;1.2;1.2;1.2;0\n",    # 23:59 UTC
+                                     "20201231 190000;1.2;1.2;1.2;1.2;0\n"])   # 2021-01-01 00:00 UTC
+    manifiesto.registrar(ruta, "histdata", "x", cfg=cfg, repo=repo)
+    with pytest.raises(cargador.CandadoError, match="sellado"):
+        cargador.convertir("histdata", "2016-01-01", "2016-12-31", cfg=cfg, repo=repo)
+
+
+def test_la_conversion_de_dukascopy_junta_bid_y_ask(entorno):
+    cfg, repo = entorno
+    carpeta = os.path.join(cfg.RUTA_CRUDOS, "dukascopy")
+    os.makedirs(carpeta)
+    encabezado = "Time (UTC),Open,High,Low,Close,Volume\n"
+    filas = {"BID": ["04.01.2016 10:00:00.000,1.1000,1.1002,1.0999,1.1001,2.5\n",
+                     "04.01.2016 10:01:00.000,1.1001,1.1001,1.1001,1.1001,0\n"],
+             "ASK": ["04.01.2016 10:00:00.000,1.1001,1.1003,1.1000,1.1002,3.5\n",
+                     "04.01.2016 10:01:00.000,1.1002,1.1002,1.1002,1.1002,0\n"]}
+    for lado, lineas in filas.items():
+        ruta = os.path.join(carpeta, f"EURUSD_Candlestick_1_M_{lado}_01.01.2016-31.01.2016.csv")
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write(encabezado + "".join(lineas))
+    manifiesto.registrar_manuales("dukascopy", cfg=cfg, repo=repo)
+    _, escritos = cargador.convertir("dukascopy", "2016-01-01", "2016-01-31", cfg=cfg, repo=repo)
+    tabla = pd.read_parquet(escritos[2016][0])
+    assert list(tabla.columns) == cargador.COLUMNAS_DUKASCOPY
+    assert len(tabla) == 2
+    assert tabla.iloc[0]["mid_high"] == pytest.approx((1.1002 + 1.1003) / 2, abs=1e-15)
+    assert tabla.iloc[0]["ask_volumen"] == 3.5
+    marcas = cargador.diagnostico(tabla, "dukascopy")
+    assert marcas["plana"].tolist() == [False, True]
+    assert not os.path.exists(os.path.join(cfg.RUTA_PROCESADOS, "_partes_dukascopy"))

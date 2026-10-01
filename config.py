@@ -16,6 +16,7 @@ DECIDIR, para los valores provisionales: el grupo los fijo todos en el punto F
 (registro/decisiones_F.md) y la marca ya no se usa.
 """
 
+import os
 from types import SimpleNamespace
 
 
@@ -312,3 +313,40 @@ CORTES_AUDITORIA_EVENTO = 20                 # cortes en el instante EXACTO de u
 CORTES_AUDITORIA_MITAD_FRANJA = 10           # cortes en la mitad de una franja que genero eventos
 CORTES_AUDITORIA_AZAR = 10                   # cortes en un minuto cualquiera, despues del primer evento
 ANIOS_AUDITORIA = 1                          # duracion del mercado simulado sobre el que se corre la auditoria
+
+# =============================================================================
+#  12. DATOS REALES (punto G): rutas, descarga, candado y control de calidad
+#      Los precios viven FUERA del repositorio. En git solo va el manifiesto
+#      (registro/manifiesto_datos.csv) y el registro de lecturas
+#      (registro/aperturas.md). Toda lectura de precios pasa por
+#      fuentes/cargador.py.
+# =============================================================================
+RUTA_CRUDOS = os.environ.get(                # archivos tal como se bajaron o exportaron, sin modificar
+    "CUARTINHOS_CRUDOS", r"C:\WorkSpace\20_Data\Raw\Cuartinhos_EURUSD")
+RUTA_PROCESADOS = os.environ.get(            # parquet en UTC, uno por fuente y ano
+    "CUARTINHOS_PROCESADOS", r"C:\WorkSpace\20_Data\Processed\Cuartinhos_EURUSD")
+FUENTES = ("dukascopy", "histdata")          # dukascopy = analisis principal (precio medio); histdata = control y replica (bid)
+
+ETIQUETA_PRERREGISTRO = "prerregistro-v1"    # sin esta etiqueta, el cargador solo entrega datos al modulo de calidad
+DESCARGA_TOPE = SELLADO[0]                   # nada desde esta fecha se descarga ni se convierte hasta la Etapa 5
+
+HISTDATA_PAGINA = "https://www.histdata.com/download-free-forex-historical-data/?/ascii/1-minute-bar-quotes/eurusd/{anio}"
+HISTDATA_POST = "https://www.histdata.com/get.php"   # el formulario de la pagina pide el archivo con un token por pagina
+HISTDATA_ANIOS = (2003, 2020)                # anos completos que se bajan (primer ano de Dukascopy hasta el fin de validacion)
+HISTDATA_HORAS_A_UTC = 5                     # HistData publica en EST fijo (UTC-5, sin horario de verano): UTC = EST + 5 h
+DESCARGA_PAUSA_SEG = 10                      # pausa entre pedidos a un mismo servidor
+DESCARGA_REINTENTOS = 5                      # intentos por archivo; la espera crece con cada intento
+DESCARGA_TIMEOUT_SEG = 120                   # tiempo maximo de un pedido
+
+# Control de calidad (pre-registro, 3.3). Solo usa rupturas: si hay, direccion y minuto.
+CALIDAD_MAX_INVALIDAS = 0.001                # fraccion maxima de barras invalidas por ano y fuente (0,1%)
+CALIDAD_DESFASE_MAX_MIN = 120                # desfases de -120 a +120 minutos en la correlacion entre fuentes
+CALIDAD_ZONA_NUEVA_YORK = "America/New_York" # el FX abre el domingo y cierra el viernes a las 17:00 de Nueva York
+CALIDAD_CORTE_SEMANAL_NY = 17                # hora de Nueva York de la apertura del domingo y del cierre del viernes
+CALIDAD_APERTURA_DOMINGO_UTC = (21, 23)      # la primera barra de la semana tiene que abrir entre estas horas UTC
+CALIDAD_CIERRE_VIERNES_UTC = (20, 22)        # la ultima barra del viernes tiene que abrir entre estas horas UTC
+CALIDAD_SPREAD_ALTO_PIPS = 10                # spread por encima del cual la barra se reporta (no se borra)
+CALIDAD_ACUERDO_MIN = 0.90                   # acuerdo minimo en "hay ruptura y en que direccion"
+CALIDAD_ACUERDO_ALERTA = 0.80                # por debajo de esto se detiene la etapa de datos
+CALIDAD_TOLERANCIA_HORA_MIN = 2              # diferencia maxima de hora (minutos) para contar dos rupturas como simultaneas
+CALIDAD_MARGEN_DIAS = 3                      # dias del ano anterior que se leen como contexto (referencia, primera semana); no se cuentan
