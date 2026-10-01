@@ -268,20 +268,26 @@ def test_con_el_mismo_bid_las_fuentes_coinciden_en_todo(cfg, repo):
     assert tablas["barras"]["invalidas"].sum() == 0
 
 
-def test_un_desfase_de_una_hora_se_detecta(cfg, repo, tmp_path):
-    # HistData corrida una hora (el error tipico de zona): el maximo se mueve a +60.
+@pytest.mark.parametrize("horas", [1, -3])
+def test_un_desfase_de_horas_se_detecta(cfg, repo, tmp_path, horas):
+    # HistData corrida una hora (horario de verano) o tres hacia atras (hora de
+    # Chile): el barrido amplio lo encuentra siempre; la ventana de +-120 solo
+    # si cae adentro.
     carpeta = str(tmp_path / "procesados")
     for fuente in ("dukascopy", "histdata"):
         os.makedirs(os.path.join(carpeta, fuente))
         origen = os.path.join(cfg.RUTA_PROCESADOS, fuente, f"{fuente}_EURUSD_M1_2016.parquet")
         tabla = pd.read_parquet(origen)
         if fuente == "histdata":
-            tabla.index = tabla.index + pd.Timedelta(hours=1)
+            tabla.index = tabla.index + pd.Timedelta(hours=horas)
         tabla.to_parquet(os.path.join(carpeta, fuente, f"{fuente}_EURUSD_M1_2016.parquet"))
     cfg2 = ayuda.cfg_prueba(RUTA_PROCESADOS=carpeta)
     tablas = calidad.correr("2016-01-04", "2016-01-29", cfg=cfg2, repo=repo)
     zona = tablas["zona"].iloc[0]
-    assert zona["desfase_del_maximo"] == 60 and not zona["cumple"]
+    assert zona["desfase_del_maximo_amplio"] == 60 * horas
+    assert not zona["cumple"]
+    if abs(horas) <= 2:
+        assert zona["desfase_del_maximo"] == 60 * horas
 
 
 # -----------------------------------------------------------------------------

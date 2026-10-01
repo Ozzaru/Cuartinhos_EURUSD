@@ -214,6 +214,14 @@ def chequeo_zona(limpias, anio, cfg):
                "segunda_mayor": float(detalle.loc[detalle["desfase_min"] != mejor["desfase_min"],
                                                   "correlacion"].max()),
                "cumple": bool(mejor["desfase_min"] == 0)}
+    # Diagnostico, no criterio: el mismo calculo en +-15 horas, para que una
+    # zona equivocada por mas de dos horas (hora de Chile, de Europa del Este)
+    # no pase sin ser vista.
+    amplio = correlacion_por_desfase(cambios["dukascopy"], cambios["histdata"],
+                                     cfg.CALIDAD_DESFASE_DIAGNOSTICO_MIN)
+    mejor_amplio = amplio.loc[amplio["correlacion"].idxmax()]
+    resumen["desfase_del_maximo_amplio"] = int(mejor_amplio["desfase_min"])
+    resumen["correlacion_maxima_amplia"] = float(mejor_amplio["correlacion"])
     return resumen, detalle
 
 
@@ -508,7 +516,10 @@ def informe(tablas, desde, hasta, cfg, segundos, titulo="Control de calidad de l
     partes.append(f"Correlacion de los cambios logaritmicos de 1 minuto del bid de cierre, "
                   f"Dukascopy en t contra HistData en t + desfase, desfases de "
                   f"-{cfg.CALIDAD_DESFASE_MAX_MIN} a +{cfg.CALIDAD_DESFASE_MAX_MIN} minutos. "
-                  "Criterio: el maximo en 0 todos los anos.\n")
+                  "Criterio: el maximo en 0 todos los anos. Las dos ultimas columnas son "
+                  f"un diagnostico, no un criterio: el mismo calculo en +-"
+                  f"{cfg.CALIDAD_DESFASE_DIAGNOSTICO_MIN // 60} horas, para ver una zona "
+                  "equivocada por mas de dos horas.\n")
     partes.append(_md(t.get("zona"), 4))
     if "zona_detalle" in t and len(t["zona_detalle"]):
         cerca = t["zona_detalle"][t["zona_detalle"]["desfase_min"].abs() <= 3]

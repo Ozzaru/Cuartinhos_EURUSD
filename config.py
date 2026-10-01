@@ -341,6 +341,7 @@ DESCARGA_TIMEOUT_SEG = 120                   # tiempo maximo de un pedido
 # Control de calidad (pre-registro, 3.3). Solo usa rupturas: si hay, direccion y minuto.
 CALIDAD_MAX_INVALIDAS = 0.001                # fraccion maxima de barras invalidas por ano y fuente (0,1%)
 CALIDAD_DESFASE_MAX_MIN = 120                # desfases de -120 a +120 minutos en la correlacion entre fuentes
+CALIDAD_DESFASE_DIAGNOSTICO_MIN = 900        # barrido amplio (+-15 h), solo diagnostico: encuentra una zona equivocada que caiga fuera de +-120
 CALIDAD_ZONA_NUEVA_YORK = "America/New_York" # el FX abre el domingo y cierra el viernes a las 17:00 de Nueva York
 CALIDAD_CORTE_SEMANAL_NY = 17                # hora de Nueva York de la apertura del domingo y del cierre del viernes
 CALIDAD_APERTURA_DOMINGO_UTC = (21, 23)      # la primera barra de la semana tiene que abrir entre estas horas UTC
