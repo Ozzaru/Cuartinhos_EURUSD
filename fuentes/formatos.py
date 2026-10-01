@@ -25,7 +25,14 @@ Dukascopy, CSV del Historical Data Manager de JForex (un archivo por lado):
     no se sabe en que reloj esta y el archivo se rechaza), y Open, High, Low,
     Close, Volume;
   - sin filtro de velas planas: los minutos sin ticks vienen como velas con
-    volumen 0. Aqui se conservan; el cargador los trata como faltantes.
+    volumen 0. Aqui se conservan; el cargador los trata como faltantes;
+  - con la configuracion regional en espanol, JForex escribe los decimales con
+    COMA y separa los campos tambien con coma: "1,08701" ocupa dos campos. Se
+    reconoce porque el encabezado trae 6 columnas y las filas 10 u 11 campos.
+    Los cuatro precios siempre traen parte entera y decimales (2 campos cada
+    uno); el volumen, 1 campo si es entero y 2 si no. Cada campo tiene que ser
+    solo digitos y cada precio tiene que caer en un rango posible: una fila
+    mal partida da un precio absurdo y se rechaza.
 """
 import re
 
@@ -106,20 +113,60 @@ def _formato_de_fecha(ejemplo):
     raise FormatoError(f"Dukascopy: no reconozco el formato de fecha '{ejemplo}'")
 
 
-def dukascopy_jforex(flujo, filas_por_trozo=1_000_000):
+_DIGITOS = r"\d+"
+
+
+def _coma_decimal(trozo, rango_plausible):
+    """Reconstruye los cinco numeros de una fila escrita con coma decimal."""
+    salida = pd.DataFrame(index=trozo.index)
+    partes = [f"c{k}" for k in range(1, 11)]
+    for k, nombre in enumerate(LADOS):
+        entero, decimales = trozo[partes[2 * k]], trozo[partes[2 * k + 1]]
+        if not (entero.str.fullmatch(_DIGITOS).all() and decimales.str.fullmatch(_DIGITOS).all()):
+            raise FormatoError(f"Dukascopy (coma decimal): '{nombre}' con campos que no son digitos")
+        salida[nombre] = pd.to_numeric(entero + "." + decimales)
+    entero, decimales = trozo["c9"], trozo["c10"]
+    if not (entero.str.fullmatch(_DIGITOS).all() and decimales.dropna().str.fullmatch(_DIGITOS).all()):
+        raise FormatoError("Dukascopy (coma decimal): volumen con campos que no son digitos")
+    salida["volumen"] = pd.to_numeric(entero.where(decimales.isna(), entero + "." + decimales))
+    precios = salida[list(LADOS)].to_numpy()
+    if not ((precios > rango_plausible[0]) & (precios < rango_plausible[1])).all():
+        raise FormatoError("Dukascopy (coma decimal): precios fuera de rango; alguna fila se "
+                           "partio mal")
+    return salida
+
+
+def dukascopy_jforex(flujo, rango_plausible, filas_por_trozo=1_000_000):
     """
     Lee un CSV de Dukascopy (un lado: bid o ask) por trozos.
 
     Genera DataFrames con open, high, low, close y volumen, con indice
     `apertura_utc` en UTC. Los trozos permiten convertir decenas de millones
-    de filas sin cargarlas todas a la vez.
+    de filas sin cargarlas todas a la vez. Reconoce solo el formato con punto
+    decimal y el de coma decimal descrito arriba; cualquier otro se rechaza.
     """
     sep = _encabezado_dukascopy(flujo.readline())
-    lector = pd.read_csv(flujo, sep=sep, header=None, names=["marca"] + COLUMNAS,
-                         dtype={"marca": str}, float_precision="round_trip",
-                         chunksize=filas_por_trozo)
+    posicion = flujo.tell()
+    campos = len(flujo.readline().rstrip("\r\n").split(sep))
+    flujo.seek(posicion)
+    if campos == 6:
+        coma_decimal = False
+        nombres = ["marca"] + COLUMNAS
+    elif sep == "," and campos in (10, 11):
+        coma_decimal = True
+        nombres = ["marca"] + [f"c{k}" for k in range(1, 11)]
+    else:
+        raise FormatoError(f"Dukascopy: la primera fila trae {campos} campos y el encabezado 6")
+    lector = pd.read_csv(flujo, sep=sep, header=None, names=nombres,
+                         dtype=str if coma_decimal else {"marca": str},
+                         float_precision="round_trip", chunksize=filas_por_trozo)
     formato = None
     for trozo in lector:
+        if coma_decimal:
+            if trozo[nombres[:10]].isna().any().any():
+                raise FormatoError("Dukascopy (coma decimal): filas con menos de 10 campos")
+            numeros = _coma_decimal(trozo, rango_plausible)
+            trozo = pd.concat([trozo[["marca"]], numeros], axis=1)
         _sin_nulos(trozo, "Dukascopy")
         marca = trozo["marca"].str.replace(_SUFIJO_ZONA, "", regex=True).str.strip()
         if formato is None:

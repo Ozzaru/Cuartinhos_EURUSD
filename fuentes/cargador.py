@@ -407,7 +407,7 @@ def _convertir_dukascopy(ini, fin, cfg, repo):
         lado = _lado_dukascopy(archivo)
         total = dentro_total = 0
         with open(archivo, encoding="utf-8-sig", newline="") as flujo:
-            for k, trozo in enumerate(formatos.dukascopy_jforex(flujo)):
+            for k, trozo in enumerate(formatos.dukascopy_jforex(flujo, cfg.PRECIO_PLAUSIBLE)):
                 _exigir_antes_del_tope(trozo.index, archivo, cfg)
                 dentro = (trozo.index >= ini) & (trozo.index < fin)
                 total += len(trozo)

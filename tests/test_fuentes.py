@@ -39,6 +39,36 @@ def test_histdata_rechaza_campos_vacios():
         formatos.histdata_m1(io.StringIO("20160103 170000;1.08;;1.08;1.08;0\n"), 5)
 
 
+RANGO = (0.5, 2.5)
+
+
+def test_dukascopy_lee_la_coma_decimal_de_jforex_en_espanol():
+    # Como lo exporto JForex en el piloto: coma decimal y coma separadora; el
+    # volumen entero viene sin decimales (una coma menos).
+    texto = ("Time (UTC),Open,High,Low,Close,Volume \n"
+             "2016-01-04 10:00:00,1,08701,1,08713,1,08698,1,0871,123,45\n"
+             "2016-01-04 10:01:00,1,0871,1,0872,1,087,1,08715,250\n")
+    tabla = next(formatos.dukascopy_jforex(io.StringIO(texto), RANGO))
+    assert tabla.index[1] == pd.Timestamp("2016-01-04 10:01", tz="UTC")
+    assert tabla["open"].tolist() == [1.08701, 1.0871]
+    assert tabla["close"].tolist() == [1.0871, 1.08715]
+    assert tabla["low"].tolist() == [1.08698, 1.087]
+    assert tabla["volumen"].tolist() == [123.45, 250.0]
+
+
+@pytest.mark.parametrize("fila", [
+    "2016-01-04 10:00:00,1,08701,1,08713,1,08698,1,0871",                # faltan campos
+    "2016-01-04 10:00:00,1,08701,1,08713,1,08698,1,0871,1,2,3",          # sobran
+    "2016-01-04 10:00:00,1,08701,1,08713,1,08698,1,0871,12a,4",          # no son digitos
+    "2016-01-04 10:00:00,1,08701,108713,1,08698,1,0871,1,4",             # mal partida: precio absurdo
+])
+def test_dukascopy_con_coma_decimal_rechaza_filas_mal_formadas(fila):
+    texto = ("Time (UTC),Open,High,Low,Close,Volume\n"
+             "2016-01-04 09:59:00,1,08701,1,08713,1,08698,1,0871,1,5\n" + fila + "\n")
+    with pytest.raises((formatos.FormatoError, ValueError)):
+        list(formatos.dukascopy_jforex(io.StringIO(texto), RANGO))
+
+
 @pytest.mark.parametrize("encabezado, fecha", [
     ("Time (UTC),Open,High,Low,Close,Volume", "03.01.2016 22:00:00.000"),
     ("Gmt time,Open,High,Low,Close,Volume", "03.01.2016 22:00:00.000"),
@@ -48,7 +78,7 @@ def test_histdata_rechaza_campos_vacios():
 def test_dukascopy_lee_las_variantes_de_la_exportacion(encabezado, fecha):
     sep = ";" if ";" in encabezado else ","
     texto = encabezado + "\n" + sep.join([fecha, "1.08701", "1.08713", "1.08698", "1.08713", "12.5"]) + "\n"
-    trozos = list(formatos.dukascopy_jforex(io.StringIO(texto)))
+    trozos = list(formatos.dukascopy_jforex(io.StringIO(texto), RANGO))
     assert len(trozos) == 1
     tabla = trozos[0]
     assert tabla.index[0] == pd.Timestamp("2016-01-03 22:00", tz="UTC")
@@ -61,13 +91,13 @@ def test_dukascopy_lee_las_variantes_de_la_exportacion(encabezado, fecha):
 def test_dukascopy_rechaza_una_hora_sin_zona_declarada_o_columnas_raras(encabezado):
     texto = encabezado + "\n03.01.2016 22:00:00.000,1.1,1.1,1.1,1.1,1\n"
     with pytest.raises(formatos.FormatoError):
-        list(formatos.dukascopy_jforex(io.StringIO(texto)))
+        list(formatos.dukascopy_jforex(io.StringIO(texto), RANGO))
 
 
 def test_dukascopy_no_adivina_entre_dia_y_mes():
     texto = "Time (UTC),Open,High,Low,Close,Volume\n01/02/2016 22:00:00,1.1,1.1,1.1,1.1,1\n"
     with pytest.raises(formatos.FormatoError):
-        list(formatos.dukascopy_jforex(io.StringIO(texto)))
+        list(formatos.dukascopy_jforex(io.StringIO(texto), RANGO))
 
 
 # -----------------------------------------------------------------------------

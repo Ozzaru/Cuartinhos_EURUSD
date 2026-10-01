@@ -334,6 +334,7 @@ HISTDATA_PAGINA = "https://www.histdata.com/download-free-forex-historical-data/
 HISTDATA_POST = "https://www.histdata.com/get.php"   # el formulario de la pagina pide el archivo con un token por pagina
 HISTDATA_ANIOS = (2003, 2020)                # anos completos que se bajan (primer ano de Dukascopy hasta el fin de validacion)
 HISTDATA_HORAS_A_UTC = 5                     # HistData publica en EST fijo (UTC-5, sin horario de verano): UTC = EST + 5 h
+PRECIO_PLAUSIBLE = (0.5, 2.5)                # el EUR/USD nunca salio de este rango: un precio fuera delata una linea mal leida
 DESCARGA_PAUSA_SEG = 10                      # pausa entre pedidos a un mismo servidor
 DESCARGA_REINTENTOS = 5                      # intentos por archivo; la espera crece con cada intento
 DESCARGA_TIMEOUT_SEG = 120                   # tiempo maximo de un pedido
