@@ -29,14 +29,17 @@ Reglas (pre-registro 4.8):
   - BLS: Employment Situation (empleo) y Consumer Price Index (ipc). La fecha
     real sale de las paginas de archivo de cada serie, que listan cada
     comunicado con su fecha de publicacion (tambien los atrasados, como los de
-    octubre de 2013). La hora es la habitual, 8:30 ET, y se verifica en una
+    octubre de 2013). Hasta 2007 los comunicados estan en texto (.txt) y PDF;
+    desde 2008, en HTML. La hora es la habitual, 8:30 ET, y se verifica en una
     muestra de comunicados (la linea de embargo de cada uno).
   - BCE: "Monetary policy decisions" de las reuniones programadas, desde la
     lista por ano de ecb.europa.eu. El comunicado no dice su hora: se usa la
-    regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022). Las
-    reuniones de politica monetaria son los jueves; una decision en otro dia
-    es no programada (por ejemplo, el recorte coordinado del 08-10-2008) y va
-    a excluidos.csv.
+    regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022). Una
+    decision es de una reunion programada si su comunicado dice "At today's
+    meeting the Governing Council..."; la que no lo dice (el recorte coordinado
+    del 08-10-2008) va a excluidos.csv. El dia de la semana no sirve: varias
+    reuniones programadas fueron en miercoles (fuera de Francfort o en semana
+    de Pascua).
   - Conversion a UTC con la base de zonas fijada (tzdata 2026.4):
     America/New_York para la Fed y el BLS, Europe/Berlin para el BCE.
 
@@ -54,6 +57,7 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -83,6 +87,10 @@ _MESES = {m: k for k, m in enumerate(
 
 class CalendarioError(RuntimeError):
     """Una fuente no trae lo que se espera; mejor detenerse que adivinar."""
+
+
+class NoExiste(CalendarioError):
+    """La fuente responde que esa pagina no existe (404)."""
 
 
 # -----------------------------------------------------------------------------
@@ -117,6 +125,13 @@ def pagina(url, cfg=None, repo=None, con_contacto=False):
                 with urllib.request.urlopen(pedido, timeout=cfg.DESCARGA_TIMEOUT_SEG) as r:
                     contenido = r.read()
                 break
+            except urllib.error.HTTPError as error:
+                if error.code == 404:
+                    time.sleep(cfg.CALENDARIO_PAUSA_SEG)
+                    raise NoExiste(f"{url}: 404") from error
+                if intento == cfg.DESCARGA_REINTENTOS:
+                    raise CalendarioError(f"{url}: {error}") from error
+                time.sleep(cfg.CALENDARIO_PAUSA_SEG * 2 ** intento)
             except Exception as error:
                 if intento == cfg.DESCARGA_REINTENTOS:
                     raise CalendarioError(f"{url}: {error}") from error
@@ -220,6 +235,14 @@ def fomc(cfg, repo):
                                       f"comunicado ({declarada}) no coinciden")
             hora, fuente_hora = hora_del_comunicado(html), "comunicado"
             url_minutas = urllib.parse.urljoin(FED, r["minutas"]) if r["minutas"] else ""
+            if hora is None and not url_minutas:
+                # La pagina del ano solo enlaza el PDF: se prueba la URL HTML
+                # estandar de las minutas de la Fed.
+                url_minutas = f"{FED}/monetarypolicy/fomcminutes{fecha:%Y%m%d}.htm"
+                try:
+                    pagina(url_minutas, cfg, repo)
+                except NoExiste:
+                    url_minutas = ""
             if hora is None and url_minutas:
                 hora = hora_de_las_minutas(pagina(url_minutas, cfg, repo))
                 fuente_hora = "minutas de la reunion"
@@ -239,13 +262,23 @@ def fomc(cfg, repo):
 SERIES_BLS = {"empleo": "empsit", "ipc": "cpi"}
 
 
+_PREFERENCIA_BLS = {"htm": 0, "txt": 1, "pdf": 2}
+
+
 def comunicados_bls(html, serie):
-    """Fechas de publicacion y enlaces (HTML) de la pagina de archivo de una serie."""
+    """
+    Fechas de publicacion y enlace de cada comunicado de la pagina de archivo
+    de una serie. Si un comunicado esta en varios formatos, se prefiere HTML,
+    despues texto y al final PDF.
+    """
     vistos = {}
-    for url, mes, dia, anio in re.findall(
-            rf'href="(/news\.release/archives/{serie}_(\d{{2}})(\d{{2}})(\d{{4}})\.htm)"', html):
-        vistos[dt.date(int(anio), int(mes), int(dia))] = url
-    return sorted(vistos.items())
+    for url, mes, dia, anio, ext in re.findall(
+            rf'href="(/news\.release/(?:archives|history)/{serie}_(\d{{2}})(\d{{2}})(\d{{4}})\.(htm|txt|pdf))"',
+            html):
+        fecha = dt.date(int(anio), int(mes), int(dia))
+        if fecha not in vistos or _PREFERENCIA_BLS[ext] < _PREFERENCIA_BLS[vistos[fecha][1]]:
+            vistos[fecha] = (url, ext)
+    return sorted((f, u) for f, (u, _) in vistos.items())
 
 
 def verificar_hora_bls(html):
@@ -270,6 +303,10 @@ def bls(cfg, repo):
                    if any(f.year == a for f, _ in lista)]
         muestra += [(f, u) for f, u in lista if f.year == 2013 and f.month == 10]
         for fecha, url in muestra:
+            if url.endswith(".pdf"):
+                verificados.append({"tipo": tipo, "fecha": fecha, "dice_8_30": None,
+                                    "url": urllib.parse.urljoin(BLS, url)})
+                continue
             html = pagina(urllib.parse.urljoin(BLS, url), cfg, repo, con_contacto=True)
             verificados.append({"tipo": tipo, "fecha": fecha, "dice_8_30": verificar_hora_bls(html),
                                 "url": urllib.parse.urljoin(BLS, url)})
@@ -289,6 +326,11 @@ def decisiones_bce(html):
     return salida
 
 
+def es_programada_bce(html):
+    """True si el comunicado dice "At today's meeting" (decision de una reunion programada)."""
+    return bool(re.search(r"At today[\u2019']s meeting", _texto(html)))
+
+
 def hora_bce(fecha, cfg):
     desde, hora_nueva = cfg.HORA_BCE_DESDE_2022
     return tuple(hora_nueva) if fecha >= dt.date.fromisoformat(desde) else tuple(cfg.HORA_BCE)
@@ -304,9 +346,10 @@ def bce(cfg, repo):
                 excluidos.append({"tipo": "bce", "fecha": fecha.isoformat(), "motivo":
                                   f"no es una decision de politica monetaria: {titulo}", "url": url})
                 continue
-            if fecha.weekday() != 3:
+            if not es_programada_bce(pagina(url, cfg, repo)):
                 excluidos.append({"tipo": "bce", "fecha": fecha.isoformat(), "motivo":
-                                  "no programada (no es jueves)", "url": url})
+                                  "no programada (el comunicado no dice \"At today's meeting\")",
+                                  "url": url})
                 continue
             anuncios.append(_fila(fecha, hora_bce(fecha, cfg), "bce", cfg.ZONA_BCE,
                                   "regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022)", url))
