@@ -2666,3 +2666,55 @@ horario de verano y se corrigio, la regla de alineacion con las 8 semanas y
 los 11 meses, y el limite de 2019-2020.
 
 **Hash del paso 3**: `81edd05` (`punto G (paso 3): regla de alineacion verificada (8 semanas y 11 meses exactos), control de calidad repetido y bitacora`). Push de `etapa-datos` a `origin`.
+
+---
+
+## Punto F, cierre (revision del pre-registro despues de la etapa de datos)
+
+- **Fecha**: 2026-10-02
+- **Rama**: `main`. `etapa-datos` se integro por fast-forward (`debbfbb` ->
+  `133f4bb`, 26 commits; `main` no tenia commits nuevos). Tests: 327 pasan, 0
+  avisos (`pytest -W error`, con el `.venv`).
+- **Sin congelar y sin push.** La etiqueta `prerregistro-v1` se pide aparte,
+  despues de que el grupo lea el documento.
+
+### Que cambio en `registro/prerregistro.md`
+
+Solo lo pedido; ninguna definicion, prueba, alfa ni parametro:
+- encabezado y 2.6: congelamiento antes de calcular cualquier resultado y
+  antes de la Etapa 3; datos y calidad el 01 y 02-10-2026;
+- 2.1 y 2.2: datos 2003-2020 descargados, solo calidad, evidencia
+  (`registro/aperturas.md` y el candado);
+- 2.4: el candado tal como quedo programado (`fuentes/`), con sus tests;
+- 3.1: HistData en hora de Nueva York con horario de verano
+  (`America/New_York`), regla de exclusion de la replica (semana corrida
+  60 +- 10 min con el mismo signo; mes con desfase distinto de 0 medido sin
+  esas semanas), lo que excluye (8 semanas de 2019-2020 y 11 meses de
+  2003-2006) y la declaracion de cuando se preciso la regla;
+- 3.3: resumen de los resultados del control de calidad 2003-2020;
+- 4.8: 767 anuncios; 2:15 p.m. ET para los 29 comunicados de la Fed anteriores
+  a 2009 sin hora explicita (confirmado en las minutas del 25-06-2008); lista
+  de lo no programado que se excluyo;
+- 8.10: la replica con HistData no es independiente en 2019-2020;
+- seccion final "Cambios e incidentes despues del borrador del 01-10-2026",
+  con cada cambio respecto de `prerregistro-borrador-1` (fecha y razon) y el
+  parrafo del incidente tal cual lo redacto el grupo.
+
+### Pendiente de confirmacion del grupo
+
+Tres pedidos venian en un bloque de texto pegado y contradicen "nada mas
+cambia": no se aplicaron hasta que el grupo los confirme.
+- (i) 5.5: sensibilidad de "peor precio" en el efecto neto.
+- (j) 5.7: curva de Kaplan-Meier del tiempo de la sostenida al reingreso, como
+  analisis exploratorio.
+- En las limitaciones, el parrafo sobre la causa del exceso del horizonte de
+  120 minutos.
+Los dos primeros agregan analisis despues de descargar los datos; si se
+confirman, entran a la seccion de cambios con esa fecha y esa razon.
+
+### PDF de lectura
+
+`resultados/prerregistro_lectura_2026-10-02.pdf` (19 paginas; no se versiona),
+con el aviso "version de lectura, NO congelada". Mismo camino que en el punto
+F: pandoc 3.10 (Markdown a HTML con una hoja de estilo de impresion) y Edge sin
+interfaz (`--headless --print-to-pdf`).

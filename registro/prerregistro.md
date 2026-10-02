@@ -1,7 +1,7 @@
 # Pre-registro — Cascada de stops o presión de liquidez: qué ocurre tras las rupturas de rangos intradía en EUR/USD
 
 - **Versión**: 1 (borrador para revisión del grupo; se congela con la etiqueta `prerregistro-v1`).
-- **Fecha de redacción**: 25 de septiembre de 2026. **Congelamiento previsto**: martes 29 de septiembre de 2026, con la etiqueta anotada `prerregistro-v1` en el repositorio público, antes de cualquier descarga de datos.
+- **Fecha de redacción**: 25 de septiembre de 2026; revisado el 2 de octubre de 2026, después de la etapa de datos (ver "Cambios e incidentes después del borrador del 01-10-2026", al final). **Congelamiento previsto**: con la etiqueta anotada `prerregistro-v1` en el repositorio público, antes de calcular cualquier resultado y antes de la Etapa 3.
 - **Repositorio**: https://github.com/Ozzaru/Cuartinhos_EURUSD. La versión que vale es la del commit con la etiqueta `prerregistro-v1`.
 
 ---
@@ -44,11 +44,18 @@ En todo el documento, el **efecto** de una celda (tipo de evento × horizonte) e
 
 ### 2.1 Tipo de estudio
 
-Estudio **observacional** sobre datos que ya existen (precios históricos de EUR/USD de un minuto y calendarios oficiales de anuncios) y que **los autores no han descargado ni analizado**. No hay manipulación ni asignación aleatoria.
+Estudio **observacional** sobre datos que ya existen (precios históricos de EUR/USD de un minuto y calendarios oficiales de anuncios). Los datos de 2003 a 2020 se descargaron el 1 y el 2 de octubre de 2026 y, antes de congelar este documento, **solo se revisó su calidad** (2.2 y 3.3). No hay manipulación ni asignación aleatoria.
 
 ### 2.2 Datos existentes
 
-**Se congela antes de acceder a los datos.** Ningún autor ha descargado ni analizado precios de EUR/USD para este estudio. Como cualquier observador del mercado, los autores pueden haber visto gráficos del par, pero ninguno ha calculado las variables definidas aquí ni ha mirado retornos después de rupturas de franja. Todo el desarrollo previo al registro (motor de eventos, pruebas estadísticas, controles de calibración y de potencia) se hizo con **mercados simulados**, y está en el repositorio con su historia de commits y la bitácora (`registro/bitacora.md`).
+**Se congela antes de calcular cualquier resultado.** Los precios de EUR/USD de un minuto de 2003 a 2020 (Dukascopy y HistData) y el calendario de anuncios se obtuvieron el 1 y el 2 de octubre de 2026. Antes de congelar solo se revisó su **calidad** (3.3): **no se calculó ningún retorno posterior a eventos ni se clasificaron sostenidas o reingresos**, en ningún tramo. El control de calidad usa de las rupturas solo si las hay, su dirección y su minuto, nunca lo que pasa después.
+
+La evidencia está en el repositorio:
+
+- `registro/aperturas.md`: cada lectura de precios que tocó el tramo de validación quedó anotada **antes** de hacerse, como "lectura de calidad", con fecha UTC, tramo, fuente, propósito, hash del commit y usuario de git.
+- El candado del código (2.4): hasta que exista la etiqueta `prerregistro-v1`, el único módulo que recibe precios es el de calidad, que no importa los módulos de resultados, nula ni inferencia. Se programó y se commiteó antes de leer el primer precio.
+
+Como cualquier observador del mercado, los autores pueden haber visto gráficos del par, pero ninguno ha calculado las variables definidas aquí ni ha mirado retornos después de rupturas de franja. Todo el desarrollo previo (motor de eventos, pruebas estadísticas, controles de calibración y de potencia) se hizo con **mercados simulados**, y está en el repositorio con su historia de commits y la bitácora (`registro/bitacora.md`). El tramo sellado no se usa; una descarga accidental que lo incluía, no leída por ningún programa y borrada el mismo día, se describe al final.
 
 ### 2.3 Papel de cada tramo
 
@@ -68,12 +75,24 @@ Precisiones:
 
 ### 2.4 Apertura única y registro de lecturas
 
-- Toda lectura de precios pasa por un **cargador único**. Si el rango pedido toca validación o el sellado sin una bandera explícita, el cargador levanta un error.
-- Con la bandera, antes de entregar datos, el cargador agrega una línea a `registro/aperturas.md` con fecha UTC, tramo, fuente, propósito, hash del commit y usuario de git, y exige el árbol de git limpio. Hay dos clases de línea:
-  - **"lectura de calidad"**: la que hace el control de calidad sobre validación antes de abrirla (3.3). Solo la acepta el módulo de calidad, que no calcula retornos posteriores a eventos.
+Se programó en la etapa de datos (`fuentes/`), antes de leer el primer precio (commit `2292d7f`, 01-10-2026), y queda en el repositorio con sus tests (`tests/test_candado.py`, `tests/test_fuentes.py`).
+
+- **Cargador único** (`fuentes/cargador.py`). Es el único módulo que lee archivos de precios; un test revisa que ningún otro lea parquet ni conozca las rutas de los precios. También convierte los crudos a parquet en UTC, y antes verifica que cada crudo siga igual a su huella en `registro/manifiesto_datos.csv` (tamaño y SHA-256). Los precios viven fuera del repositorio.
+- **Hasta la etiqueta `prerregistro-v1`**: solo entrega datos al módulo de calidad (`fuentes/calidad.py`, con propósito "calidad"; el cargador revisa qué módulo lo llama), en cualquier tramo salvo el sellado. Cualquier otro pedido es un error.
+- **Con la etiqueta**: el desarrollo se lee sin restricción; validación y sellado exigen la bandera explícita `abrir="validacion"` o `abrir="sellado"`, un tramo por vez. Sin la bandera, el cargador levanta un error.
+- **Registro.** Toda lectura que toca validación, y toda apertura, exige el árbol de git limpio y deja **antes** una línea en `registro/aperturas.md` (fecha UTC, clase, tramo, fuente, propósito, rango, hash del commit y usuario de git). Hay dos clases de línea:
+  - **"lectura de calidad"**: el control de calidad, o la conversión a parquet, lee validación antes de abrirla (3.3). Nunca calcula retornos posteriores a eventos.
   - **"apertura"**: la apertura única de validación (Etapa 3) o del sellado (Etapa 5).
-- Tests que lo vigilan: el cargador rechaza fechas de validación y del sellado sin bandera; el módulo de calidad no importa los módulos de resultados, nula ni inferencia; ninguna salida suya trae retornos posteriores. El script de descarga rechaza fechas desde el 01-01-2021 hasta la Etapa 5.
-- Este mecanismo se programa en la etapa de datos, antes de cualquier descarga de validación, y queda en el repositorio.
+- `registro/aperturas.md` **solo crece**: el cargador exige que empiece exactamente con su versión del último commit (ninguna línea editada ni borrada), y se commitea al cierre de cada sesión. Es la única excepción al árbol limpio, porque es lo que el cargador escribe.
+- **Sellado.** La descarga y la conversión rechazan toda fecha desde el 01-01-2021 hasta la Etapa 5. El registro de crudos rechaza, sin leerlo, todo archivo de Dukascopy cuyo nombre declare una fecha final posterior al 31-12-2020. Antes de interpretar un precio, la conversión lee solo las horas y se detiene si algún minuto es del sellado.
+- **Tests que lo vigilan:**
+  - sin la etiqueta, el cargador rechaza todo lo que no sea el módulo de calidad;
+  - con la etiqueta, rechaza validación y sellado sin la bandera;
+  - la lectura de validación exige el árbol limpio y queda anotada;
+  - el registro solo admite líneas agregadas;
+  - el módulo de calidad no importa resultados, nula ni inferencia (tampoco eventos, moderadores ni auditoría);
+  - ninguna salida suya trae retornos posteriores ni los tipos sostenida o reingreso;
+  - la descarga, el registro y la conversión rechazan el sellado.
 
 ### 2.5 Política de enmiendas
 
@@ -85,9 +104,9 @@ Precisiones:
 
 | fecha | hito |
 |---|---|
-| 29-09-2026 | congelamiento: etiqueta `prerregistro-v1` en el repositorio público, antes de cualquier descarga |
-| 29-09 al 01-10-2026 | descarga de datos hasta 2020 y control de calidad |
+| 01 y 02-10-2026 | descarga de datos hasta 2020 y control de calidad (solo calidad: ningún resultado) |
 | 02-10-2026 | Entrega N1 |
+| antes de calcular cualquier resultado y antes de la Etapa 3 | congelamiento: etiqueta `prerregistro-v1` en el repositorio público |
 | 05-10 al 23-10-2026 | Etapa 3: análisis en desarrollo; enmiendas, si las hay; apertura de validación; criterio de paso |
 | 26-10 al 13-11-2026 | Etapa 4: regla de operación (solo si pasa el criterio), o acotación del efecto |
 | 16-11 al 20-11-2026 | Etapa 5: descarga y apertura única del tramo sellado |
@@ -101,8 +120,26 @@ Precisiones:
 | fuente | qué | papel |
 |---|---|---|
 | **Dukascopy** | Velas de 1 minuto de EUR/USD con **bid y ask**, en UTC. El precio medio es (bid + ask) / 2. | **Análisis principal**: todas las definiciones y resultados usan el **precio medio**; el efecto neto usa bid y ask. |
-| **HistData** | Velas de 1 minuto de EUR/USD, **solo bid**, en hora EST **fija** (UTC−5, sin horario de verano; se convierte a UTC sumando 5 horas). | **Control y réplica**: la réplica del análisis con HistData usa **bid**, mientras el análisis principal usa el precio medio de Dukascopy. La coincidencia entre fuentes se mide con el bid de las dos. |
+| **HistData** | Velas de 1 minuto de EUR/USD, **solo bid**. Su documentación dice hora EST fija (UTC−5, sin horario de verano), pero los archivos vienen en **hora de Nueva York con horario de verano**: se convierten a UTC con `America/New_York` (ver abajo). | **Control y réplica**: la réplica del análisis con HistData usa **bid**, mientras el análisis principal usa el precio medio de Dukascopy. La coincidencia entre fuentes se mide con el bid de las dos. |
 | **Calendarios oficiales** | Fecha y hora de los anuncios de la lista cerrada (4.8). | Variable de anuncio (H4) y control en la regresión de H3. |
+
+**HistData: zona horaria y réplica.** Decisión del grupo del 02-10-2026, después del control de calidad (3.3):
+
+- **Zona horaria.** Los archivos de HistData vienen en hora de Nueva York con horario de verano, al revés de lo que dice su documentación (EST fija). El control de calidad lo mostró:
+  - con EST fija, la correlación entre fuentes tenía su máximo en +60 minutos todos los años;
+  - la apertura del domingo de HistData quedaba una hora tarde durante el verano de EE. UU.
+
+  Se convierten con `America/New_York` (base de zonas fijada). Es un error de manejo de la segunda fuente (3.3) y el análisis principal no cambia.
+- **Regla de exclusión de la réplica.** Lo que no queda alineado con Dukascopy se excluye de la réplica con HistData, sin corregirlo con desfases calculados:
+  1. Se excluye una **semana** (domingo a viernes) si la apertura del domingo y el cierre del viernes de HistData están ambos corridos 60 ± 10 minutos respecto de la hora de Nueva York, con el mismo signo.
+  2. Se excluye un **mes** (UTC) si su desfase con Dukascopy (el máximo de la correlación de 3.3) no es 0, medido sin las semanas del punto 1.
+
+  Las demás desviaciones (datos ralos que empiezan tarde, días faltantes, feriados) se informan y no se excluyen.
+- **Lo que excluye en 2003-2020.**
+  - **8 semanas de 2019-2020**: las que empiezan el 10, 17 y 24 de marzo y el 27 de octubre de 2019, y el 8, 15 y 22 de marzo y el 25 de octubre de 2020. En esos años HistData cambia de horario en las fechas europeas y no en las de EE. UU.
+  - **11 meses de 2003-2006**: mayo, junio, julio, octubre, noviembre y diciembre de 2003; febrero, marzo, junio y noviembre de 2004; octubre de 2006. Mayo a julio de 2003 vinieron en EST fija; los demás están corridos 1 o 2 minutos.
+- **Cuándo se precisó la regla.** Se precisó después de ver las tablas de calidad de 2003-2020, para separar un reloj corrido de un dato faltante. Esas tablas son solo horas de apertura y cierre semanales y la zona horaria mes a mes; no contienen ningún resultado. **Se aplica sin cambios al tramo sellado.**
+- **Dónde está.** Las tolerancias y las listas están en `config.py`. El control de calidad aplica la regla en cada corrida y verifica que encuentre exactamente esas listas.
 
 ### 3.2 Períodos
 
@@ -123,6 +160,20 @@ Se hace sobre las dos fuentes, por año. Sobre validación es una **lectura de c
 | Spread (Dukascopy) | Distribución por hora UTC y año; más ancho en el cierre de Nueva York. Spread ≤ 0: barra inválida. Más de 10 pips: se reporta, no se borra. | Informativo. |
 | Extremos por franja | Diferencia de máximos y mínimos de franja entre fuentes (bid), en pips: mediana y percentil 95 por año. | Informativo. |
 | **Rupturas coincidentes** | Con el detector sobre el bid de las dos fuentes y el mismo umbral: acuerdo en "hay ruptura y en qué dirección" en **al menos 90%** de las franjas; para las rupturas que coinciden, porcentaje con diferencia de hora de 2 minutos o menos. | Entre 80% y 90%: el análisis principal no cambia y la réplica con HistData se reporta con advertencia. **Menos de 80%**: se detiene la etapa de datos y se busca un error de manejo (zona, formato, huecos). Si no lo hay, el grupo decide antes de abrir validación, lo registra y **no cambia definiciones**. |
+
+**Resultados, 2003-2020.** Control del 1 y 2 de octubre de 2026, con HistData en hora de Nueva York y la réplica sin los períodos fuera de alineación (3.1). `resultados/` no se versiona; los números están en la bitácora, punto G.
+
+| chequeo | resultado |
+|---|---|
+| Integridad de la barra | **Cumple** todos los años. Dukascopy: 125 barras inválidas de 6.619.380, todas de 2013 por spread ≤ 0 (máximo de 0,034% en un año); además, 10.469 velas planas (minutos sin ticks), que pasan a faltantes. HistData: ninguna barra inválida en 6.224.358. |
+| Zona horaria | **Cumple**: máximo en desfase 0 los 18 años, también en un barrido de ±15 horas. Correlación de 0,51-0,77 en 2003-2007 y de 0,87-1,00 desde 2008. |
+| Apertura del domingo y cierre del viernes | Dukascopy: 5 de 920 semanas fuera de rango (feriados y un hueco en 2003). HistData: 63 de 916 (datos ralos y feriados). |
+| Huecos | Huecos de más de 60 minutos fuera del fin de semana: 20 en Dukascopy y 125 en HistData (sobre todo 2004-2005). |
+| Cobertura | Porcentaje de franjas de lunes a viernes bajo 0,90, sin contar la [18,24) del viernes, que siempre queda bajo. Dukascopy: 0%-1,4% por año. HistData: hasta 65% en 2003-2011 y 0,6%-1,7% desde 2012. |
+| Horario de verano | **Cumple**: las 35 franjas de 5 o 7 horas caen en los domingos de cambio de hora del Reino Unido. |
+| Spread (Dukascopy) | Mediana de 1 pip hasta 2010 (1,4 en 2008), de 0,8-0,9 en 2011-2012 y de 0,3 desde 2013. Más ancho a las 21-22 UTC. 716 barras con más de 10 pips (se reportan, no se borran). |
+| Extremos por franja | Mediana de la diferencia entre fuentes: 0,0-0,1 pips desde 2015; 2-5 pips antes de 2010 (HistData más alto). |
+| Rupturas coincidentes | **Cumple**: acuerdo de 91,6% a 100%, todos los años sobre el 90%. A 2 minutos o menos: 69%-90% hasta 2011 y 94,5%-100% desde 2012. |
 
 ### 3.4 Criterios de exclusión
 
@@ -196,6 +247,23 @@ Solo anuncios **programados**, con la hora real de publicación que da la fuente
 - **No entran**: reuniones o medidas no programadas (por ejemplo, las de marzo de 2020), minutas, discursos, testimonios ni conferencias de prensa como anuncio aparte (caen dentro de los 60 minutos del comunicado).
 - Conversión a UTC con la base de zonas horarias fijada (`tzdata` 2026.4): America/New_York para la Fed y el BLS, Europe/Berlin para el BCE.
 - El calendario se arma desde las fuentes en un archivo versionado (`calendario/anuncios.csv`: hora UTC, tipo y URL de la fuente). No contiene precios.
+- **Calendario armado** (1 y 2 de octubre de 2026): **767 anuncios de 2003 a 2020**.
+  - Por tipo: 216 de empleo, 216 de IPC, 192 del BCE (12 por año hasta 2014 y 8 desde 2015) y 143 de la Fed (8 por año; 7 en 2020, por la reunión cancelada de marzo).
+  - En validación: 40 por año (39 en 2020).
+- **De dónde sale la hora.**
+  - Fed: del comunicado (39) o de las minutas de la reunión (75).
+  - BLS: 8:30 ET, verificada en la línea de embargo de 10 comunicados, incluidos los atrasados de octubre de 2013.
+  - BCE: 13:45 CET, por la regla publicada; el comunicado no dice su hora.
+- **Fed antes de 2009 sin hora explícita.** 29 comunicados no la dicen ni en el comunicado ni en las minutas en HTML: 28 de 2003 a junio de 2006 y el del 25-06-2008. Usan **2:15 p.m. ET**, la práctica de la Fed en esos años, y quedan marcados así en el archivo. Las minutas del 25-06-2008, en PDF, lo confirman: "to be released at 2:15 p.m.".
+- **Lo no programado que se excluyó** (`calendario/excluidos.csv`):
+  - **Fed**:
+    - las conferencias telefónicas: 25-03, 01-04, 08-04 y 16-04-2003; 10-08, 16-08 y 06-12-2007; 09-01, 21-01, 10-03, 24-07, 29-09 y 07-10-2008; 16-01, 07-02 y 03-06-2009; 09-05 y 15-10-2010; 01-08 y 28-11-2011;
+    - las reuniones no programadas: 16-10-2013, 04-03-2014, 04-10-2019, 02-03-2020 y 15-03-2020;
+    - la reunión cancelada del 17-18-03-2020;
+    - los votos por escrito: 19-03, 23-03, 31-03 y 27-08-2020;
+    - la reunión del 15-09-2003, que no tuvo comunicado.
+  - **BCE**: la decisión coordinada del 08-10-2008. Una decisión del BCE se considera programada si su comunicado dice "At today's meeting" o anuncia la conferencia de prensa de ese día; el día de la semana no sirve, porque varias reuniones programadas fueron en miércoles.
+  - También se excluyeron entradas de la lista del BCE que no son decisiones de política monetaria: TARGET2-Securities (2007), y el PEPP y operaciones de liquidez (marzo y abril de 2020).
 
 ### 4.9 Variables de emparejamiento de la nula (no son explicativas)
 
@@ -428,6 +496,7 @@ Además se precisan tres cosas que la propuesta dejaba abiertas:
 7. **La segunda fuente solo tiene bid**, así que la réplica con HistData cambia a la vez el proveedor y el tipo de precio.
 8. **El criterio de paso** mira hasta 6 celdas confirmadas y no se corrige por eso. Solo habilita la Etapa 4: lo que confirma H5 está en el sellado, con deflactación por ensayos.
 9. **Piso**: con 200 mercados no se detecta un sesgo propio de los eventos (prueba conjunta de Hotelling, p = 0,45), pero los intervalos por celda admiten sesgos de hasta ±0,005 unidades (hasta +0,008 en sostenida a fin de franja), del orden de un décimo del efecto mínimo detectable.
+10. **La réplica con HistData no es independiente en 2019-2020.** En esos dos años de validación, HistData coincide con el bid de Dukascopy: la correlación de los cambios de 1 minuto es 1,00000 y los extremos de franja son iguales. En esos dos años la réplica no es una fuente independiente. En 2015-2018 la correlación es 0,99.
 
 ---
 
@@ -484,3 +553,33 @@ python -m experimentos.anexo_sensibilidad                          anexo de sens
 ## Enmiendas
 
 Ninguna (versión 1).
+
+---
+
+## Cambios e incidentes después del borrador del 01-10-2026
+
+Cambios respecto de la etiqueta `prerregistro-borrador-1` (commit `debbfbb`, "pre-registro tal como estaba antes de descargar datos"), según `git diff prerregistro-borrador-1`. **No cambió ninguna definición, prueba, alfa ni parámetro del estudio.** En `config.py` solo se agregó la sección 12 (datos reales); ninguna línea de las secciones 1 a 11 cambió (0 líneas quitadas).
+
+**En este documento** (02-10-2026; la razón es la misma para todos: la etapa de datos se hizo antes del congelamiento, revisando solo la calidad):
+
+| sección | cambio | razón |
+|---|---|---|
+| Encabezado y 2.6 | El congelamiento ya no es "antes de cualquier descarga" sino "antes de calcular cualquier resultado y antes de la Etapa 3"; datos y calidad, el 1 y el 2 de octubre. | El calendario de datos se adelantó al congelamiento. |
+| 2.1 y 2.2 | Los datos de 2003-2020 ya se descargaron y solo se revisó su calidad, sin ningún resultado; evidencia: `registro/aperturas.md` y el candado. | Lo mismo. |
+| 2.4 | El candado, descrito tal como quedó programado (`fuentes/`), con sus tests. | Antes estaba descrito como algo por programar. |
+| 3.1 | HistData viene en hora de Nueva York con horario de verano (se convierte con `America/New_York`); regla de exclusión de la réplica y lo que excluye en 2003-2020. | El control de calidad mostró la zona en +60 minutos con EST fija (decisión del grupo del 02-10-2026). |
+| 3.3 | Resumen de los resultados del control de calidad 2003-2020. | `resultados/` no se versiona. |
+| 4.8 | Número final de anuncios; 2:15 p.m. ET para los comunicados de la Fed anteriores a 2009 sin hora explícita; lista de lo no programado que se excluyó. | El calendario se armó desde las fuentes; algunos comunicados antiguos no dicen su hora. |
+| 8.10 | La réplica con HistData no es independiente en 2019-2020. | Hallazgo del control de calidad. |
+
+**En el código y los datos del repositorio** (01-10-2026, etapa de datos, punto G de la bitácora):
+
+- **`fuentes/`** (nuevo): el candado y el cargador único (2.4), la conversión a parquet en UTC, el manifiesto de los crudos, la descarga de HistData, el calendario de anuncios y el control de calidad. Tests nuevos: `test_candado.py`, `test_fuentes.py`, `test_calendario.py` y `test_rupturas.py`.
+- **`motor/`**:
+  - La detección de la ruptura pasó de `eventos.py` a `motor/rupturas.py`, y `motor/__init__.py` ya no importa sus submódulos. Así el control de calidad no carga los módulos de resultados.
+  - La detección es **idéntica**: se compararon antes y después 36 combinaciones (6 mercados simulados × 6 variantes de config), con igualdad exacta de la tabla completa de eventos.
+- **Archivos versionados nuevos, sin precios**: `calendario/` (anuncios, excluidos y pendientes, este último vacío), `registro/aperturas.md` y `registro/manifiesto_datos.csv`.
+
+**Incidente del 01-10-2026:**
+
+El 01-10-2026, por un error de rango en el exportador de JForex, se descargaron velas de 1 minuto de EUR/USD desde el 04-05-2003 hasta el 01-10-2026, incluido el tramo sellado. Antes de borrarlos, los archivos se abrieron por error en Excel durante unos segundos; Excel solo carga el comienzo del archivo (desde mayo de 2003, tramo de desarrollo), así que no se mostró ningún dato del tramo sellado, y ningún programa del proyecto los leyó. Se registró su tamaño y su SHA-256, se borraron el mismo día y se exportó de nuevo solo hasta el 31-12-2020. El caché interno de JForex también se borró.
