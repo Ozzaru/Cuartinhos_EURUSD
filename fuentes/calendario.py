@@ -36,7 +36,9 @@ Reglas (pre-registro 4.8):
     lista por ano de ecb.europa.eu. El comunicado no dice su hora: se usa la
     regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022). Una
     decision es de una reunion programada si su comunicado dice "At today's
-    meeting the Governing Council..."; la que no lo dice (el recorte coordinado
+    meeting the Governing Council..." o anuncia la conferencia de prensa de
+    ese dia ("press conference starting at 14:30 CET today"; asi redactan los
+    de fines de 2020). La que no dice ninguna de las dos (el recorte coordinado
     del 08-10-2008) va a excluidos.csv. El dia de la semana no sirve: varias
     reuniones programadas fueron en miercoles (fuera de Francfort o en semana
     de Pascua).
@@ -273,7 +275,7 @@ def comunicados_bls(html, serie):
     """
     vistos = {}
     for url, mes, dia, anio, ext in re.findall(
-            rf'href="(/news\.release/(?:archives|history)/{serie}_(\d{{2}})(\d{{2}})(\d{{4}})\.(htm|txt|pdf))"',
+            rf'href="(?:https?://www\.bls\.gov)?(/news\.release/(?:archives|history)/{serie}_(\d{{2}})(\d{{2}})(\d{{4}})\.(htm|txt|pdf))"',
             html):
         fecha = dt.date(int(anio), int(mes), int(dia))
         if fecha not in vistos or _PREFERENCIA_BLS[ext] < _PREFERENCIA_BLS[vistos[fecha][1]]:
@@ -327,8 +329,14 @@ def decisiones_bce(html):
 
 
 def es_programada_bce(html):
-    """True si el comunicado dice "At today's meeting" (decision de una reunion programada)."""
-    return bool(re.search(r"At today[\u2019']s meeting", _texto(html)))
+    """
+    True si el comunicado es de una reunion programada: dice "At today's
+    meeting" o anuncia la conferencia de prensa de ese dia. (El menu del sitio
+    dice "press conference 10 September 2026": no calza con el patron.)
+    """
+    texto = _texto(html)
+    return bool(re.search(r"At today[\u2019']s meeting", texto)
+                or re.search(r"press conference (?:starting )?at \d", texto))
 
 
 def hora_bce(fecha, cfg):
@@ -348,7 +356,8 @@ def bce(cfg, repo):
                 continue
             if not es_programada_bce(pagina(url, cfg, repo)):
                 excluidos.append({"tipo": "bce", "fecha": fecha.isoformat(), "motivo":
-                                  "no programada (el comunicado no dice \"At today's meeting\")",
+                                  "no programada (el comunicado no dice \"At today's meeting\" "
+                                  "ni anuncia conferencia de prensa)",
                                   "url": url})
                 continue
             anuncios.append(_fila(fecha, hora_bce(fecha, cfg), "bce", cfg.ZONA_BCE,

@@ -64,11 +64,13 @@ def test_comunicados_del_bls_salen_de_la_pagina_de_archivo():
             '<a href="/news.release/archives/empsit_2027.htm">futuro</a>'
             '<a href="/news.release/history/empsit_01102003.txt">December 2002</a>'
             '<a href="/news.release/archives/empsit_01102003.pdf">PDF</a>'
-            '<a href="/news.release/archives/empsit_02072003.pdf">solo PDF</a>')
+            '<a href="/news.release/archives/empsit_02072003.pdf">solo PDF</a>'
+            '<a href="https://www.bls.gov/news.release/archives/empsit_04052019.htm">absoluta</a>')
     lista = calendario.comunicados_bls(html, "empsit")
     assert lista == [(dt.date(2003, 1, 10), "/news.release/history/empsit_01102003.txt"),
                      (dt.date(2003, 2, 7), "/news.release/archives/empsit_02072003.pdf"),
-                     (dt.date(2013, 10, 22), "/news.release/archives/empsit_10222013.htm")]
+                     (dt.date(2013, 10, 22), "/news.release/archives/empsit_10222013.htm"),
+                     (dt.date(2019, 4, 5), "/news.release/archives/empsit_04052019.htm")]
     assert calendario.verificar_hora_bls("embargoed until 8:30 A.M. (EST), Friday")
     assert calendario.verificar_hora_bls("embargoed until 8:30 a.m. (ET) Friday")
     assert not calendario.verificar_hora_bls("embargoed until 10:00 a.m. (ET)")
@@ -84,6 +86,10 @@ def test_decisiones_del_bce():
     assert calendario.es_programada_bce("<p>At today\u2019s meeting the Governing Council of the ECB</p>")
     assert calendario.es_programada_bce("<p>At today's meeting the Governing Council decided</p>")
     assert not calendario.es_programada_bce("<p>The Governing Council of the ECB has today decided</p>")
+    assert calendario.es_programada_bce("<p>The Governing Council today decided... "
+                                        "at a press conference starting at 14:30 CET today.</p>")
+    assert not calendario.es_programada_bce("<p>Latest monetary policy press conference 10 September 2026</p>"
+                                            "<p>The Governing Council has today decided</p>")
     cfg = ayuda.cfg_prueba()
     assert calendario.hora_bce(dt.date(2016, 12, 8), cfg) == (13, 45)
     assert calendario.hora_bce(dt.date(2022, 7, 21), cfg) == (14, 15)
