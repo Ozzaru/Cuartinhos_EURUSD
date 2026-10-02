@@ -2604,3 +2604,63 @@ que el grupo decida sobre 2019-2020. Opciones:
   2020-10, 2020-11): mas simple, pero saca ~5 semanas alineadas por cada una
   desalineada en octubre y noviembre.
 - (c) dejarlas dentro y declararlo: los criterios anuales se cumplen igual.
+
+### Paso 3, regla de alineacion de HistData (decision del grupo, 2026-10-02)
+
+**Decision.** Se excluye de la replica con HistData, sin corregirlo con
+desfases calculados (el analisis principal, Dukascopy, no cambia):
+1. **Semana con el reloj corrido**: la apertura del domingo y el cierre del
+   viernes de HistData, en la misma semana, estan ambos corridos una hora
+   respecto de Nueva York (60 +- 10 minutos, mismo signo;
+   `CALIDAD_RELOJ_CORRIDO_MIN`, `CALIDAD_RELOJ_TOLERANCIA_MIN`).
+2. **Mes fuera de alineacion**: su desfase con Dukascopy no es 0, medido
+   despues de quitar las semanas del punto 1.
+Las demas desviaciones (datos ralos que empiezan tarde, dias faltantes,
+feriados) se informan y no se excluyen.
+
+**Declaracion.** La regla se preciso despues de ver las tablas de calidad de
+2003-2020 (solo horas de apertura y cierre semanales y la zona mes a mes;
+ningun resultado), para separar un reloj corrido de un dato faltante. La
+redaccion literal anterior ("toda semana cuya apertura o cierre no calce con
+Nueva York") marcaba 54 semanas con 45 minutos de tolerancia y 297 sin
+tolerancia (datos ralos de 2004-2005, feriados, cierres media hora antes), y
+"todo mes con desfase distinto de 0", 13 meses (sumaba marzo de 2019 y de
+2020 completos). **La regla se aplicara sin cambios al tramo sellado en la
+Etapa 5.**
+
+**Codigo** (commit `672781a`): las tolerancias y las dos listas en config.py
+(`HISTDATA_SEMANAS_FUERA_DE_ALINEACION`, `HISTDATA_MESES_FUERA_DE_ALINEACION`);
+el cargador excluye de la replica meses y semanas (`semana_de`, `en_semanas`);
+el control de calidad aplica la regla en cada corrida
+(`semanas_reloj_corrido`, `chequeo_zona_mensual` sin esas semanas) y verifica
+que encuentre exactamente las dos listas. Tests: 327 pasan, 0 avisos.
+
+**Verificacion (control completo, 2003-2020; 8 lecturas de validacion
+anotadas):** la regla encuentra **exactamente las 8 semanas de 2019-2020**
+(10, 17 y 24 de marzo y 27 de octubre de 2019; 8, 15 y 22 de marzo y 25 de
+octubre de 2020) y **exactamente los 11 meses de 2003-2006**. Sin esas
+semanas, marzo de 2019 y de 2020 quedan en desfase 0. El informe ya no tiene
+el aviso. 46 semanas de HistData con desviaciones de 45 minutos o mas quedan
+listadas en el informe, sin excluir.
+
+**Resultado del control repetido** (todos los criterios cumplen):
+- zona por ano: maximo en 0 los 18 anos (y en el barrido de +-15 h);
+  correlacion 0,51-0,77 en 2003-2007 y 0,87-1,00 desde 2008;
+- rupturas coincidentes: 91,6%-100% (todos >= 90%); a 2 minutos o menos,
+  94%-100% desde 2012;
+- integridad: sin cambios (Dukascopy 125 invalidas, 0,034% max.).
+
+**Hallazgo (limite de la replica, no es un criterio de 3.3).** En 2019 y 2020
+HistData coincide con el bid de Dukascopy: correlacion de los cambios de 1
+minuto 1,00000 en todos los meses y extremos de franja iguales (diferencia
+0,0 pips en la mediana y en el p95). En esos dos anos de validacion la replica
+con HistData no es una fuente independiente (parece salir del mismo
+proveedor). De 2015 a 2018 la correlacion es 0,99 y los extremos difieren 0,1
+pips. Se declara en el resumen para la N1; el grupo decidira si lo agrega a
+las limitaciones del pre-registro (8.7 ya dice que la segunda fuente solo
+tiene bid).
+
+**Resumen para la Entrega N1**: `resultados/calidad_resumen_N1.md` (no se
+versiona), con la linea de que HistData viene en hora de Nueva York con
+horario de verano y se corrigio, la regla de alineacion con las 8 semanas y
+los 11 meses, y el limite de 2019-2020.

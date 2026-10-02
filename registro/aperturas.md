@@ -31,3 +31,11 @@ lectura, escrita ANTES de entregar o convertir los datos. Clases:
 | 2026-10-02 00:38:49 | lectura de calidad | validacion | histdata | calidad | 2018-12-29 a 2019-12-31 | 6d680c54bda2af0357548b3442aafcf23b86f520 | Joel Vásquez |
 | 2026-10-02 00:39:39 | lectura de calidad | validacion | dukascopy | calidad | 2019-12-29 a 2020-12-31 | 6d680c54bda2af0357548b3442aafcf23b86f520 | Joel Vásquez |
 | 2026-10-02 00:39:40 | lectura de calidad | validacion | histdata | calidad | 2019-12-29 a 2020-12-31 | 6d680c54bda2af0357548b3442aafcf23b86f520 | Joel Vásquez |
+| 2026-10-02 01:09:08 | lectura de calidad | desarrollo, validacion | dukascopy | calidad | 2016-12-29 a 2017-12-31 | 672781ae89f42f128a894b8f687363ddd1d1aa76 | Joel Vásquez |
+| 2026-10-02 01:09:08 | lectura de calidad | desarrollo, validacion | histdata | calidad | 2016-12-29 a 2017-12-31 | 672781ae89f42f128a894b8f687363ddd1d1aa76 | Joel Vásquez |
+| 2026-10-02 01:10:02 | lectura de calidad | validacion | dukascopy | calidad | 2017-12-29 a 2018-12-31 | 672781ae89f42f128a894b8f687363ddd1d1aa76 | Joel Vásquez |
+| 2026-10-02 01:10:02 | lectura de calidad | validacion | histdata | calidad | 2017-12-29 a 2018-12-31 | 672781ae89f42f128a894b8f687363ddd1d1aa76 | Joel Vásquez |
+| 2026-10-02 01:10:56 | lectura de calidad | validacion | dukascopy | calidad | 2018-12-29 a 2019-12-31 | 672781ae89f42f128a894b8f687363ddd1d1aa76 | Joel Vásquez |
+| 2026-10-02 01:10:56 | lectura de calidad | validacion | histdata | calidad | 2018-12-29 a 2019-12-31 | 672781ae89f42f128a894b8f687363ddd1d1aa76 | Joel Vásquez |
+| 2026-10-02 01:11:46 | lectura de calidad | validacion | dukascopy | calidad | 2019-12-29 a 2020-12-31 | 672781ae89f42f128a894b8f687363ddd1d1aa76 | Joel Vásquez |
+| 2026-10-02 01:11:46 | lectura de calidad | validacion | histdata | calidad | 2019-12-29 a 2020-12-31 | 672781ae89f42f128a894b8f687363ddd1d1aa76 | Joel Vásquez |
