@@ -1,7 +1,8 @@
 # Pre-registro — Cascada de stops o presión de liquidez: qué ocurre tras las rupturas de rangos intradía en EUR/USD
 
-- **Versión**: 1 (borrador para revisión del grupo; se congela con la etiqueta `prerregistro-v1`).
-- **Fecha de redacción**: 25 de septiembre de 2026; revisado el 2 de octubre de 2026, después de la etapa de datos (ver "Cambios e incidentes después del borrador del 01-10-2026", al final). **Congelamiento previsto**: con la etiqueta anotada `prerregistro-v1` en el repositorio público, antes de calcular cualquier resultado y antes de la Etapa 3.
+- **Versión**: 1, congelada.
+- **Fecha de redacción**: 25 de septiembre de 2026; revisado el 2 de octubre de 2026, después de la etapa de datos (ver "Cambios e incidentes después del borrador del 01-10-2026", al final).
+- **Fecha de congelamiento**: 2 de octubre de 2026, con la etiqueta anotada `prerregistro-v1` en el repositorio público, antes de calcular cualquier resultado y antes de la Etapa 3.
 - **Repositorio**: https://github.com/Ozzaru/Cuartinhos_EURUSD. La versión que vale es la del commit con la etiqueta `prerregistro-v1`.
 
 ---
