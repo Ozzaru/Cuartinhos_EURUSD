@@ -22,3 +22,12 @@ lectura, escrita ANTES de entregar o convertir los datos. Clases:
 | 2026-10-01 23:33:03 | lectura de calidad | validacion | histdata | calidad | 2018-12-29 a 2019-12-31 | 5d4e0b6bf483b0ea1fb501854dc9da2c0c532c6e | Joel Vásquez |
 | 2026-10-01 23:33:15 | lectura de calidad | validacion | dukascopy | calidad | 2019-12-29 a 2020-12-31 | 5d4e0b6bf483b0ea1fb501854dc9da2c0c532c6e | Joel Vásquez |
 | 2026-10-01 23:33:15 | lectura de calidad | validacion | histdata | calidad | 2019-12-29 a 2020-12-31 | 5d4e0b6bf483b0ea1fb501854dc9da2c0c532c6e | Joel Vásquez |
+| 2026-10-02 00:25:45 | lectura de calidad | desarrollo, validacion | histdata | conversion a parquet | 2003-05-04 a 2020-12-31 | 6d680c54bda2af0357548b3442aafcf23b86f520 | Joel Vásquez |
+| 2026-10-02 00:37:06 | lectura de calidad | desarrollo, validacion | dukascopy | calidad | 2016-12-29 a 2017-12-31 | 6d680c54bda2af0357548b3442aafcf23b86f520 | Joel Vásquez |
+| 2026-10-02 00:37:06 | lectura de calidad | desarrollo, validacion | histdata | calidad | 2016-12-29 a 2017-12-31 | 6d680c54bda2af0357548b3442aafcf23b86f520 | Joel Vásquez |
+| 2026-10-02 00:37:58 | lectura de calidad | validacion | dukascopy | calidad | 2017-12-29 a 2018-12-31 | 6d680c54bda2af0357548b3442aafcf23b86f520 | Joel Vásquez |
+| 2026-10-02 00:37:58 | lectura de calidad | validacion | histdata | calidad | 2017-12-29 a 2018-12-31 | 6d680c54bda2af0357548b3442aafcf23b86f520 | Joel Vásquez |
+| 2026-10-02 00:38:49 | lectura de calidad | validacion | dukascopy | calidad | 2018-12-29 a 2019-12-31 | 6d680c54bda2af0357548b3442aafcf23b86f520 | Joel Vásquez |
+| 2026-10-02 00:38:49 | lectura de calidad | validacion | histdata | calidad | 2018-12-29 a 2019-12-31 | 6d680c54bda2af0357548b3442aafcf23b86f520 | Joel Vásquez |
+| 2026-10-02 00:39:39 | lectura de calidad | validacion | dukascopy | calidad | 2019-12-29 a 2020-12-31 | 6d680c54bda2af0357548b3442aafcf23b86f520 | Joel Vásquez |
+| 2026-10-02 00:39:40 | lectura de calidad | validacion | histdata | calidad | 2019-12-29 a 2020-12-31 | 6d680c54bda2af0357548b3442aafcf23b86f520 | Joel Vásquez |

@@ -2534,3 +2534,73 @@ entorno, no esta en ningun archivo):
 sostenidas o reingresos: el control de calidad solo uso rupturas (si hay,
 direccion y minuto), y el diagnostico, lo mismo, en carpetas temporales.
 `registro/aperturas.md` commiteado al cierre de la sesion.
+
+### Paso 3, decisiones del grupo aplicadas (2026-10-02)
+
+Decisiones (sobre el reporte anterior):
+1. **Zona de HistData**: se convierte con la hora de Nueva York con horario de
+   verano (`HISTDATA_ZONA = "America/New_York"`) en todos los anos. Es un error
+   de manejo de la segunda fuente (3.3), no un cambio de definiciones. La frase
+   de 3.1 del pre-registro la corrige el grupo en `main`.
+   - Los 11 meses de 2003-2006 que no quedan en desfase 0 NO se corrigen con
+     desfases calculados: quedan "fuera de alineacion"
+     (`HISTDATA_MESES_FUERA_DE_ALINEACION`) y el cargador no los entrega para
+     el analisis (`limpiar`). El analisis principal (Dukascopy) no cambia.
+2. **Fed**: 2:15 p.m. ET ("practica de la Fed") para los 29 comunicados
+   anteriores a 2009 sin hora en la fuente. El PDF de las minutas del
+   25-06-2008 lo confirma: "The vote encompassed approval of the statement
+   below to be released at 2:15 p.m." (leido con la biblioteca estandar:
+   zlib sobre los bloques de texto del PDF, sin dependencias nuevas).
+
+Codigo (commit `6d680c5`): `cargador.diagnostico` marca `fuera_de_alineacion`;
+`limpiar` (analisis) los saca y `limpiar_barras` (la fuente tal cual) no. El
+control de calidad usa la fuente con todos sus meses en los chequeos de una
+sola fuente y la replica (sin esos meses) en los que comparan fuentes, y mide
+la zona mes por mes con todos los meses. Calendario: `hora_por_practica`.
+Tests: 325 pasan, 0 avisos.
+
+**Conversion repetida** (HistData, 2003-05-04 a 2020-12-31, 23 s; anotada en
+`aperturas.md`, 00:25:45 UTC) y **control de calidad completo repetido**
+(`resultados/calidad.md`; 8 lecturas de validacion anotadas):
+
+| chequeo | resultado |
+|---|---|
+| zona por ano (replica) | maximo en 0 los 18 anos (barrido de +-15 h tambien); correlacion 0,51-0,77 en 2003-2007 y 0,71-0,99 desde 2008 | **cumple** |
+| rupturas coincidentes (replica) | 91,6%-99,8%, todos los anos >= 90%; a 2 min o menos, 69%-90% hasta 2011 y 94%-97% desde 2012 | **cumple** |
+| integridad | sin cambios (Dukascopy 125 invalidas, 0,034% max.; HistData 0) | **cumple** |
+| extremos | mediana 0,0-0,1 pips desde 2015; 2-5 pips antes de 2010 (HistData mas alto) | informativo |
+| zona mes por mes | 212 meses; 199 con el maximo en 0; los 11 de la lista coinciden con la medicion | ver abajo |
+
+**Hallazgo nuevo (no cubierto por la decision): 2019 y 2020.** La zona mes por
+mes marca tambien **marzo de 2019 y marzo de 2020** en -60, y no estan en la
+lista. La tabla de aperturas y cierres semanales (ya calculada, sin leer
+precios de nuevo) muestra que en esos dos anos HistData cambia de horario en
+las fechas EUROPEAS (ultimo domingo de marzo y de octubre), no en las de EE.
+UU. Entre unas y otras queda corrido -60 minutos (8 semanas, todas de
+validacion):
+
+| periodo | semanas | evidencia |
+|---|---|---|
+| 10 al 31 de marzo de 2019 | 3 | apertura del domingo 60 min antes y cierre del viernes 60 min antes que Nueva York |
+| 27 de octubre al 3 de noviembre de 2019 | 1 | idem |
+| 8 al 29 de marzo de 2020 | 3 | idem |
+| 25 de octubre al 1 de noviembre de 2020 | 1 | idem |
+
+Las semanas de octubre y noviembre no se ven en la tabla mensual (una semana
+no mueve el maximo del mes). De 2005 a 2018 no hay ninguna semana asi. Los
+criterios anuales igual se cumplen (2019: zona en 0 con 0,92 y acuerdo 98,9%;
+2020: zona en 0 con 0,71 y acuerdo 98,5%).
+
+**Calendario** (sin pendientes): 767 anuncios; Fed 8 por ano (7 en 2020); 29
+con "practica de la Fed" (uno de ellos, "confirmada en el PDF de las minutas").
+
+**Push: NO se hizo.** El control repetido cumple los criterios anuales, pero la
+lista exacta de periodos fuera de alineacion no coincide con la decision: falta
+que el grupo decida sobre 2019-2020. Opciones:
+- (a, recomendada) marcar como fuera de alineacion exactamente esas 8 semanas
+  (las de diferencia entre el cambio de hora de EE. UU. y el europeo en 2019 y
+  2020) y excluirlas de la replica, igual que los 11 meses; sin corregirlas.
+- (b) marcar los meses completos (2019-03, 2019-10, 2019-11, 2020-03,
+  2020-10, 2020-11): mas simple, pero saca ~5 semanas alineadas por cada una
+  desalineada en octubre y noviembre.
+- (c) dejarlas dentro y declararlo: los criterios anuales se cumplen igual.

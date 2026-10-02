@@ -2,129 +2,157 @@ t_utc,tipo,fecha_local,hora_local,zona,fuente_hora,url
 2003-01-09T12:45Z,bce,2003-01-09,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2003/html/pr030109.en.html
 2003-01-10T13:30Z,empleo,2003-01-10,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_01102003.txt
 2003-01-16T13:30Z,ipc,2003-01-16,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_01162003.txt
+2003-01-29T19:15Z,fomc,2003-01-29,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2003/20030129/default.htm
 2003-02-06T12:45Z,bce,2003-02-06,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2003/html/pr030206.en.html
 2003-02-07T13:30Z,empleo,2003-02-07,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_02072003.txt
 2003-02-21T13:30Z,ipc,2003-02-21,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_02212003.txt
 2003-03-06T12:45Z,bce,2003-03-06,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2003/html/pr030306.en.html
 2003-03-07T13:30Z,empleo,2003-03-07,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_03072003.txt
+2003-03-18T19:15Z,fomc,2003-03-18,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2003/20030318/default.htm
 2003-03-21T13:30Z,ipc,2003-03-21,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_03212003.txt
 2003-04-03T11:45Z,bce,2003-04-03,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2003/html/pr030403.en.html
 2003-04-04T13:30Z,empleo,2003-04-04,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_04042003.txt
 2003-04-16T12:30Z,ipc,2003-04-16,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_04162003.txt
 2003-05-02T12:30Z,empleo,2003-05-02,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_05022003.txt
+2003-05-06T18:15Z,fomc,2003-05-06,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2003/20030506/default.htm
 2003-05-08T11:45Z,bce,2003-05-08,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2003/html/pr030508.en.html
 2003-05-16T12:30Z,ipc,2003-05-16,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_05162003.txt
 2003-06-05T11:45Z,bce,2003-06-05,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2003/html/pr030605.en.html
 2003-06-06T12:30Z,empleo,2003-06-06,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_06062003.txt
 2003-06-17T12:30Z,ipc,2003-06-17,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_06172003.txt
+2003-06-25T18:15Z,fomc,2003-06-25,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2003/20030625/default.htm
 2003-07-03T12:30Z,empleo,2003-07-03,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_07032003.txt
 2003-07-10T11:45Z,bce,2003-07-10,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2003/html/pr030710.en.html
 2003-07-16T12:30Z,ipc,2003-07-16,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_07162003.txt
 2003-07-31T11:45Z,bce,2003-07-31,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2003/html/pr030731.en.html
 2003-08-01T12:30Z,empleo,2003-08-01,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_08012003.txt
+2003-08-12T18:15Z,fomc,2003-08-12,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2003/20030812/default.htm
 2003-08-15T12:30Z,ipc,2003-08-15,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_08152003.txt
 2003-09-04T11:45Z,bce,2003-09-04,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2003/html/pr030904.en.html
 2003-09-05T12:30Z,empleo,2003-09-05,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_09052003.txt
 2003-09-16T12:30Z,ipc,2003-09-16,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_09162003.txt
+2003-09-16T18:15Z,fomc,2003-09-16,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2003/20030916/default.htm
 2003-10-02T11:45Z,bce,2003-10-02,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2003/html/pr031002.en.html
 2003-10-03T12:30Z,empleo,2003-10-03,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_10032003.txt
 2003-10-16T12:30Z,ipc,2003-10-16,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_10162003.txt
+2003-10-28T19:15Z,fomc,2003-10-28,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2003/20031028/default.htm
 2003-11-06T12:45Z,bce,2003-11-06,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2003/html/pr031106.en.html
 2003-11-07T13:30Z,empleo,2003-11-07,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_11072003.txt
 2003-11-18T13:30Z,ipc,2003-11-18,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_11182003.txt
 2003-12-04T12:45Z,bce,2003-12-04,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2003/html/pr031204.en.html
 2003-12-05T13:30Z,empleo,2003-12-05,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_12052003.txt
+2003-12-09T19:15Z,fomc,2003-12-09,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2003/20031209/default.htm
 2003-12-16T13:30Z,ipc,2003-12-16,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_12162003.txt
 2004-01-08T12:45Z,bce,2004-01-08,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2004/html/pr040108.en.html
 2004-01-09T13:30Z,empleo,2004-01-09,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_01092004.txt
 2004-01-15T13:30Z,ipc,2004-01-15,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_01152004.txt
+2004-01-28T19:15Z,fomc,2004-01-28,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2004/20040128/default.htm
 2004-02-05T12:45Z,bce,2004-02-05,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2004/html/pr040205.en.html
 2004-02-06T13:30Z,empleo,2004-02-06,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_02062004.txt
 2004-02-20T13:30Z,ipc,2004-02-20,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_02202004.txt
 2004-03-04T12:45Z,bce,2004-03-04,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2004/html/pr040304.en.html
 2004-03-05T13:30Z,empleo,2004-03-05,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_03052004.txt
+2004-03-16T19:15Z,fomc,2004-03-16,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2004/20040316/default.htm
 2004-03-17T13:30Z,ipc,2004-03-17,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_03172004.txt
 2004-04-01T11:45Z,bce,2004-04-01,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2004/html/pr040401.en.html
 2004-04-02T13:30Z,empleo,2004-04-02,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_04022004.txt
 2004-04-14T12:30Z,ipc,2004-04-14,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_04142004.txt
+2004-05-04T18:15Z,fomc,2004-05-04,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2004/20040504/default.htm
 2004-05-06T11:45Z,bce,2004-05-06,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2004/html/pr040506.en.html
 2004-05-07T12:30Z,empleo,2004-05-07,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_05072004.txt
 2004-05-14T12:30Z,ipc,2004-05-14,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_05142004.txt
 2004-06-03T11:45Z,bce,2004-06-03,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2004/html/pr040603.en.html
 2004-06-04T12:30Z,empleo,2004-06-04,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_06042004.txt
 2004-06-15T12:30Z,ipc,2004-06-15,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_06152004.txt
+2004-06-30T18:15Z,fomc,2004-06-30,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2004/20040630/default.htm
 2004-07-01T11:45Z,bce,2004-07-01,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2004/html/pr040701.en.html
 2004-07-02T12:30Z,empleo,2004-07-02,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_07022004.txt
 2004-07-16T12:30Z,ipc,2004-07-16,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_07162004.txt
 2004-08-05T11:45Z,bce,2004-08-05,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2004/html/pr040805.en.html
 2004-08-06T12:30Z,empleo,2004-08-06,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_08062004.txt
+2004-08-10T18:15Z,fomc,2004-08-10,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2004/20040810/default.htm
 2004-08-17T12:30Z,ipc,2004-08-17,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_08172004.txt
 2004-09-02T11:45Z,bce,2004-09-02,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2004/html/pr040902.en.html
 2004-09-03T12:30Z,empleo,2004-09-03,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_09032004.txt
 2004-09-16T12:30Z,ipc,2004-09-16,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_09162004.txt
+2004-09-21T18:15Z,fomc,2004-09-21,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2004/20040921/default.htm
 2004-10-07T11:45Z,bce,2004-10-07,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2004/html/pr041007.en.html
 2004-10-08T12:30Z,empleo,2004-10-08,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_10082004.txt
 2004-10-19T12:30Z,ipc,2004-10-19,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_10192004.txt
 2004-11-04T12:45Z,bce,2004-11-04,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2004/html/pr041104.en.html
 2004-11-05T13:30Z,empleo,2004-11-05,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_11052004.txt
+2004-11-10T19:15Z,fomc,2004-11-10,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2004/20041110/default.htm
 2004-11-17T13:30Z,ipc,2004-11-17,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_11172004.txt
 2004-12-02T12:45Z,bce,2004-12-02,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2004/html/pr041202.en.html
 2004-12-03T13:30Z,empleo,2004-12-03,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_12032004.txt
+2004-12-14T19:15Z,fomc,2004-12-14,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2004/20041214/default.htm
 2004-12-17T13:30Z,ipc,2004-12-17,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_12172004.txt
 2005-01-07T13:30Z,empleo,2005-01-07,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_01072005.txt
 2005-01-13T12:45Z,bce,2005-01-13,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2005/html/pr050113.en.html
 2005-01-19T13:30Z,ipc,2005-01-19,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_01192005.txt
+2005-02-02T19:15Z,fomc,2005-02-02,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2005/20050202/default.htm
 2005-02-03T12:45Z,bce,2005-02-03,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2005/html/pr050203.en.html
 2005-02-04T13:30Z,empleo,2005-02-04,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_02042005.txt
 2005-02-23T13:30Z,ipc,2005-02-23,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_02232005.txt
 2005-03-03T12:45Z,bce,2005-03-03,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2005/html/pr050303.en.html
 2005-03-04T13:30Z,empleo,2005-03-04,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_03042005.txt
+2005-03-22T19:15Z,fomc,2005-03-22,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2005/20050322/default.htm
 2005-03-23T13:30Z,ipc,2005-03-23,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_03232005.txt
 2005-04-01T13:30Z,empleo,2005-04-01,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_04012005.txt
 2005-04-07T11:45Z,bce,2005-04-07,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2005/html/pr050407.en.html
 2005-04-20T12:30Z,ipc,2005-04-20,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_04202005.txt
+2005-05-03T18:15Z,fomc,2005-05-03,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2005/20050503/default.htm
 2005-05-04T11:45Z,bce,2005-05-04,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2005/html/pr050504.en.html
 2005-05-06T12:30Z,empleo,2005-05-06,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_05062005.txt
 2005-05-18T12:30Z,ipc,2005-05-18,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_05182005.txt
 2005-06-02T11:45Z,bce,2005-06-02,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2005/html/pr050602.en.html
 2005-06-03T12:30Z,empleo,2005-06-03,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_06032005.txt
 2005-06-15T12:30Z,ipc,2005-06-15,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_06152005.txt
+2005-06-30T18:15Z,fomc,2005-06-30,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2005/20050630/default.htm
 2005-07-07T11:45Z,bce,2005-07-07,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2005/html/pr050707.en.html
 2005-07-08T12:30Z,empleo,2005-07-08,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_07082005.txt
 2005-07-14T12:30Z,ipc,2005-07-14,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_07142005.txt
 2005-08-04T11:45Z,bce,2005-08-04,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2005/html/pr050804_2.en.html
 2005-08-05T12:30Z,empleo,2005-08-05,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_08052005.txt
+2005-08-09T18:15Z,fomc,2005-08-09,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2005/20050809/default.htm
 2005-08-16T12:30Z,ipc,2005-08-16,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_08162005.txt
 2005-09-01T11:45Z,bce,2005-09-01,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2005/html/pr050901.en.html
 2005-09-02T12:30Z,empleo,2005-09-02,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_09022005.txt
 2005-09-15T12:30Z,ipc,2005-09-15,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_09152005.txt
+2005-09-20T18:15Z,fomc,2005-09-20,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2005/20050920/
 2005-10-06T11:45Z,bce,2005-10-06,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2005/html/pr051006.en.html
 2005-10-07T12:30Z,empleo,2005-10-07,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_10072005.txt
 2005-10-14T12:30Z,ipc,2005-10-14,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_10142005.txt
+2005-11-01T19:15Z,fomc,2005-11-01,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2005/20051101/
 2005-11-03T12:45Z,bce,2005-11-03,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2005/html/pr051103.en.html
 2005-11-04T13:30Z,empleo,2005-11-04,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_11042005.txt
 2005-11-16T13:30Z,ipc,2005-11-16,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_11162005.txt
 2005-12-01T12:45Z,bce,2005-12-01,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2005/html/pr051201.en.html
 2005-12-02T13:30Z,empleo,2005-12-02,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_12022005.txt
+2005-12-13T19:15Z,fomc,2005-12-13,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/boarddocs/press/monetary/2005/20051213/
 2005-12-15T13:30Z,ipc,2005-12-15,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_12152005.txt
 2006-01-06T13:30Z,empleo,2006-01-06,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_01062006.txt
 2006-01-12T12:45Z,bce,2006-01-12,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2006/html/pr060112.en.html
 2006-01-18T13:30Z,ipc,2006-01-18,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_01182006.txt
+2006-01-31T19:15Z,fomc,2006-01-31,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/newsevents/press/monetary/20060131a.htm
 2006-02-02T12:45Z,bce,2006-02-02,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2006/html/pr060202.en.html
 2006-02-03T13:30Z,empleo,2006-02-03,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_02032006.txt
 2006-02-22T13:30Z,ipc,2006-02-22,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_02222006.txt
 2006-03-02T12:45Z,bce,2006-03-02,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2006/html/pr060302.en.html
 2006-03-10T13:30Z,empleo,2006-03-10,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_03102006.txt
 2006-03-16T13:30Z,ipc,2006-03-16,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_03162006.txt
+2006-03-28T19:15Z,fomc,2006-03-28,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/newsevents/press/monetary/20060328a.htm
 2006-04-06T11:45Z,bce,2006-04-06,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2006/html/pr060406.en.html
 2006-04-07T12:30Z,empleo,2006-04-07,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_04072006.txt
 2006-04-19T12:30Z,ipc,2006-04-19,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_04192006.txt
 2006-05-04T11:45Z,bce,2006-05-04,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2006/html/pr060504.en.html
 2006-05-05T12:30Z,empleo,2006-05-05,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_05052006.txt
+2006-05-10T18:15Z,fomc,2006-05-10,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/newsevents/press/monetary/20060510a.htm
 2006-05-17T12:30Z,ipc,2006-05-17,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_05172006.txt
 2006-06-02T12:30Z,empleo,2006-06-02,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_06022006.txt
 2006-06-08T11:45Z,bce,2006-06-08,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2006/html/pr060608.en.html
 2006-06-14T12:30Z,ipc,2006-06-14,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_06142006.txt
+2006-06-29T18:15Z,fomc,2006-06-29,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora),https://www.federalreserve.gov/newsevents/press/monetary/20060629a.htm
 2006-07-06T11:45Z,bce,2006-07-06,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2006/html/pr060706.en.html
 2006-07-07T12:30Z,empleo,2006-07-07,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/empsit_07072006.txt
 2006-07-19T12:30Z,ipc,2006-07-19,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/history/cpi_07192006.txt
@@ -212,6 +240,7 @@ t_utc,tipo,fecha_local,hora_local,zona,fuente_hora,url
 2008-06-05T11:45Z,bce,2008-06-05,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2008/html/pr080605.en.html
 2008-06-06T12:30Z,empleo,2008-06-06,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/archives/empsit_06062008.htm
 2008-06-13T12:30Z,ipc,2008-06-13,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/archives/cpi_06132008.htm
+2008-06-25T18:15Z,fomc,2008-06-25,14:15,America/New_York,practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora); confirmada en el PDF de las minutas,https://www.federalreserve.gov/newsevents/press/monetary/20080625a.htm
 2008-07-03T11:45Z,bce,2008-07-03,13:45,Europe/Berlin,regla publicada del BCE (13:45 CET; 14:15 desde el 21-07-2022),https://www.ecb.europa.eu/press/pr/date/2008/html/pr080703.en.html
 2008-07-03T12:30Z,empleo,2008-07-03,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/archives/empsit_07032008.htm
 2008-07-16T12:30Z,ipc,2008-07-16,08:30,America/New_York,"hora habitual de la serie (8:30 ET), verificada en una muestra",https://www.bls.gov/news.release/archives/cpi_07162008.htm
