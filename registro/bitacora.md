@@ -2743,3 +2743,126 @@ Los tres se decidieron sin ver ningun resultado: ninguna lectura de datos
 calculo retornos posteriores a eventos.
 
 PDF de lectura regenerado: `resultados/prerregistro_lectura_2026-10-02.pdf`.
+
+---
+
+## Punto F, paso 3 — Congelamiento del pre-registro
+
+- **Fecha**: 2026-10-02
+- **Rama**: `main`. El grupo aprobo el pre-registro (la version de lectura del
+  2026-10-02, con los agregados i, j y k).
+
+### Que se hizo
+
+1. **Encabezado** de `registro/prerregistro.md`: "Version: 1, congelada" y, en
+   lugar de "Congelamiento previsto", la **fecha de congelamiento**: 2 de
+   octubre de 2026, con la etiqueta anotada `prerregistro-v1`, antes de
+   calcular cualquier resultado y antes de la Etapa 3. Nada mas cambio en el
+   documento.
+2. **PDF**: `registro/prerregistro_v1.pdf` (22 paginas A4; se versiona, el
+   `.gitignore` deja pasar `registro/*.pdf`). Mismo camino que los PDF de
+   lectura: pandoc 3.10 (Markdown a HTML con la hoja de estilo de impresion
+   del 2026-10-02) y Edge sin interfaz (`--headless --print-to-pdf
+   --no-pdf-header-footer`). Sin el aviso de version de lectura.
+3. **Tests**: 327 pasan, 0 avisos (`pytest -W error`, con el `.venv`), antes y
+   despues del cambio.
+4. **Commit congelado**: `6c64dd517dc0d2363d1e5cda2284dcd4fe86c389`
+   (`punto F (paso 3): congelamiento del pre-registro (fecha de congelamiento en el encabezado y registro/prerregistro_v1.pdf)`).
+5. **Etiqueta anotada** `prerregistro-v1`: objeto
+   `549ff0f6c2a1211e219053f44a7d92c645607093`, apunta a `6c64dd5`. Mensaje:
+   "Pre-registro congelado (version 1), 2 de octubre de 2026: antes de
+   calcular cualquier resultado y antes de la Etapa 3".
+6. **Push** de `main` y de la etiqueta a `origin`, despues de este commit.
+
+### Verificacion del candado con la etiqueta (repositorio real)
+
+Con un programa fuera del repositorio, el `config.py` real y el repositorio
+real, todo por `cargador.leer`:
+- `existe_etiqueta("prerregistro-v1")`: si.
+- **Desarrollo**, proposito "analisis", sin bandera: **pasa**. 2016-01-04:
+  Dukascopy 1440 barras, HistData 1439. Solo se contaron filas; no se calculo
+  nada.
+- **Sin la bandera correcta, rechaza** (CandadoError antes de leer ningun
+  archivo y sin anotar nada):
+  - validacion, 2017-01-02 a 2017-01-06, con `abrir=None` y con
+    `abrir="sellado"`;
+  - 2016-12-30 a 2017-01-02 (toca validacion), con `abrir=None`;
+  - sellado, 2021-01-04 a 2021-01-08, con `abrir=None` y con
+    `abrir="validacion"`;
+  - 2020-12-28 a 2021-01-08 (toca los dos), con `abrir="validacion"`.
+- `registro/aperturas.md` sin cambios (misma SHA-256) y arbol limpio.
+- `abrir="validacion"` no se probo en el repositorio real: seria la apertura.
+  Ese camino lo cubre `test_con_etiqueta_rige_la_seccion_2_4`, en un
+  repositorio temporal.
+
+### TRASPASO — Etapa 3 (05-10 al 23-10-2026)
+
+**Estado**:
+- Pre-registro congelado: `prerregistro-v1` -> `6c64dd5`, en `origin`.
+- Datos 2003-2020 convertidos a parquet en `datos/` (fuera del repositorio).
+  Calendario: `calendario/anuncios.csv` (767 anuncios).
+- Desde la etiqueta, el cargador entrega el desarrollo sin bandera.
+  Validacion y sellado siguen cerrados sin ella (verificado arriba).
+- 327 tests, 0 avisos.
+- Ningun resultado calculado, en ningun tramo.
+
+**Orden de la Etapa 3** (pre-registro 2.3, 2.5 y 2.6):
+
+1. **Primero, el analisis completo en desarrollo** (hasta el 31-12-2016).
+   - Es el analisis pre-registrado completo: H1 a H4, el efecto neto de 5.5
+     (como descripcion), la robustez de 5.6 y lo exploratorio de 5.7.
+   - **Todo es exploratorio** (5.7) y se rotula asi en todo informe.
+   - Se lee con `cargador.leer(..., proposito=...)`, sin `abrir`, con rangos
+     que terminen a mas tardar el 31-12-2016.
+   - **Falta codigo** (revisado en `motor/` y `experimentos/` al congelar):
+     - ningun modulo conecta todavia el cargador y el calendario real con el
+       motor (hoy el motor solo corre sobre mercados simulados);
+     - no estan programados el efecto neto evento por evento de 5.5 (con sus
+       sensibilidades de comision y de peor precio) ni el Kaplan-Meier de 5.7.
+   - Ese codigo se escribe con tests y **sin cambiar** ninguna definicion,
+     prueba, alfa ni parametro. Si al programarlo hace falta decidir algo que
+     el pre-registro no dice, se decide antes de mirar resultados y se anota
+     aqui.
+2. **Si algo debe cambiar** (un error, o algo que mostro el desarrollo):
+   - una **enmienda fechada** en "Enmiendas" del pre-registro, con su razon;
+   - etiqueta anotada `prerregistro-v2` (`v3`, ...) y su entrada en esta
+     bitacora;
+   - **siempre antes de abrir validacion** (2.5). Despues, el analisis
+     confirmatorio no cambia: un error de codigo se corrige y se reportan las
+     dos versiones, con la nota aqui.
+3. **Despues, la apertura unica de validacion** (2017-2020):
+   - Antes de correr:
+     - arbol limpio, tests con 0 avisos y `registro/aperturas.md` commiteado;
+     - etiqueta anotada `validacion-v1` sobre el codigo que se va a correr;
+     - su hash en esta bitacora, con commit y push.
+   - Se corre ese codigo y no otro, con `abrir="validacion"`. Cada lectura deja
+     su linea "apertura" en `registro/aperturas.md` antes de entregar datos.
+   - Confirma H1, H2 y H3 y decide el criterio de paso por costos (5.5).
+   - Correrla otra vez es una segunda apertura: solo por un error de codigo,
+     con las dos versiones reportadas.
+   - Al cerrar la sesion se commitea `registro/aperturas.md`.
+
+**Pendiente del grupo, antes de correr desarrollo**: 2.3 dice que el
+desarrollo se corre "con el codigo de la etiqueta `prerregistro-v1`". El motor
+de esa etiqueta es el que se usa; lo nuevo es la conexion con los datos reales
+y los calculos de 5.5 y 5.7, que el pre-registro define pero que no estaban
+programados. Hay que decidir si basta con declararlo aqui y en el informe, o si
+va en una enmienda (`prerregistro-v2`) antes de abrir validacion. En los dos
+casos, validacion corre con el codigo de `validacion-v1`.
+
+**Reglas que siguen**:
+- Nada del sellado hasta la Etapa 5 (16 al 20-11-2026).
+- Todo parametro nuevo va a `config.py`; nada se ajusta para que algo pase.
+- Tests con 0 avisos.
+- `registro/aperturas.md` solo crece y se commitea al cierre de cada sesion.
+- Push de `main` despues del commit con el hash; nunca `--force`.
+
+**Como retomar**:
+
+```
+.venv\Scripts\activate
+pytest -W error                      327 pasan, 0 avisos
+git show prerregistro-v1 --stat      la version congelada
+```
+
+**Hash del congelamiento**: `6c64dd5` (etiqueta `prerregistro-v1`, objeto `549ff0f`).
