@@ -2664,3 +2664,5 @@ tiene bid).
 versiona), con la linea de que HistData viene en hora de Nueva York con
 horario de verano y se corrigio, la regla de alineacion con las 8 semanas y
 los 11 meses, y el limite de 2019-2020.
+
+**Hash del paso 3**: `81edd05` (`punto G (paso 3): regla de alineacion verificada (8 semanas y 11 meses exactos), control de calidad repetido y bitacora`). Push de `etapa-datos` a `origin`.
