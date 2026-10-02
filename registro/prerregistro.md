@@ -339,6 +339,11 @@ Errores agrupados por fecha de Londres, con la corrección de muestra finita G/(
 - **Efecto neto de la celda** = promedio de r_neto_i. IC95 = promedio ± t(0,975; G−1) · error agrupado por fecha de Londres. Es el resultado de operar en el evento, no "observado menos nulo". También se reporta en pips.
 - **Criterio de paso a la Etapa 4**: se evalúa en **validación**. Pasa si el límite inferior del IC95 del efecto neto es **> 0 en al menos una celda confirmada** (5.2). En desarrollo se reporta como descripción; en el sellado, como réplica.
 - **Sensibilidad pre-declarada**: el efecto neto se repite con comisión de **0 y de 70** USD por millón por lado. No cambia la decisión.
+- **Sensibilidad de "peor precio"** (pre-declarada; agregada el 02-10-2026). El efecto neto se repite con precios de ejecución pesimistas:
+  - **Entrada**: al **máximo del ask** de la vela de ejecución si se compra, o al **mínimo del bid** si se vende.
+  - **Salida**: al **peor precio de la vela de salida**. Para cerrar una compra se vende al mínimo del bid; para cerrar una venta se compra al máximo del ask.
+
+  Se reporta para el criterio de paso y para H5, y **no cambia ninguna decisión**. Es una prueba de estrés sin parámetros: en una ruptura agresiva, el precio de ejecución dentro del minuto puede ser peor que el cierre, y el castigo crece solo con la volatilidad de la vela.
 - La comisión es la tarifa publicada de Dukascopy para su tramo más bajo (menos de 5.000 USD de depósito o patrimonio y menos de 5 millones de volumen), cobrada en cada apertura y en cada cierre; se consultó el 25-09-2026 en https://www.dukascopy.com/swiss/english/about/fee-schedule/.
 - **Si ninguna celda pasa**: H5 no se evalúa. Se acota el tamaño máximo de efecto compatible con los datos (borde superior del IC95 del efecto bruto y neto por celda, en unidades y en pips). Un efecto real pero no rentable es un resultado válido.
 
@@ -384,6 +389,9 @@ Se repite el análisis completo con cada variante. Ninguna confirma nada: se rep
 - El tipo ruptura y el horizonte de 120 minutos de la familia principal (descriptivos).
 - H4 (secundario pre-especificado: se corre igual, no confirma).
 - Romano-Wolf (prueba secundaria).
+- **Análisis descriptivo de supervivencia** (agregado el 02-10-2026). Curva de Kaplan-Meier del tiempo que pasa desde la sostenida hasta el reingreso, censurada al fin de la franja, por índice de franja y por moderador.
+  - Se compara con la misma curva en los mercados simulados sin patrón. Esa referencia es **aproximada**, porque depende de los supuestos del simulador (6.5).
+  - **No lleva p-valores confirmatorios.** Sirve para describir la superposición entre sostenidas y reingresos (71-73% en los mercados simulados, 8.2) más allá de los horizontes fijos.
 - Cualquier análisis no descrito aquí se rotula como exploratorio en todo informe.
 
 ---
@@ -497,6 +505,9 @@ Además se precisan tres cosas que la propuesta dejaba abiertas:
 8. **El criterio de paso** mira hasta 6 celdas confirmadas y no se corrige por eso. Solo habilita la Etapa 4: lo que confirma H5 está en el sellado, con deflactación por ensayos.
 9. **Piso**: con 200 mercados no se detecta un sesgo propio de los eventos (prueba conjunta de Hotelling, p = 0,45), pero los intervalos por celda admiten sesgos de hasta ±0,005 unidades (hasta +0,008 en sostenida a fin de franja), del orden de un décimo del efecto mínimo detectable.
 10. **La réplica con HistData no es independiente en 2019-2020.** En esos dos años de validación, HistData coincide con el bid de Dukascopy: la correlación de los cambios de 1 minuto es 1,00000 y los extremos de franja son iguales. En esos dos años la réplica no es una fuente independiente. En 2015-2018 la correlación es 0,99.
+11. **Horizonte de 120 minutos.** En el control negativo, la celda de reingreso a 120 minutos rechazó entre el 14% y el 16% de las veces bajo la hipótesis nula; por eso ese horizonte es descriptivo (7.4). **La causa de este exceso de falsas alarmas no tiene explicación.** En el punto D se probaron y descartaron dos hipótesis:
+    - **emparejar por tercio de franja**: la celda siguió en 16%;
+    - **emparejar por volatilidad reciente**, junto con estudentizar el estadístico: la celda bajó a 14%, una diferencia que con 50 mercados es ruido.
 
 ---
 
@@ -558,9 +569,11 @@ Ninguna (versión 1).
 
 ## Cambios e incidentes después del borrador del 01-10-2026
 
-Cambios respecto de la etiqueta `prerregistro-borrador-1` (commit `debbfbb`, "pre-registro tal como estaba antes de descargar datos"), según `git diff prerregistro-borrador-1`. **No cambió ninguna definición, prueba, alfa ni parámetro del estudio.** En `config.py` solo se agregó la sección 12 (datos reales); ninguna línea de las secciones 1 a 11 cambió (0 líneas quitadas).
+Cambios respecto de la etiqueta `prerregistro-borrador-1` (commit `debbfbb`, "pre-registro tal como estaba antes de descargar datos"), según `git diff prerregistro-borrador-1`.
 
-**En este documento** (02-10-2026; la razón es la misma para todos: la etapa de datos se hizo antes del congelamiento, revisando solo la calidad):
+**No cambió el diseño confirmatorio**: ninguna definición, prueba confirmatoria, alfa ni parámetro del estudio. Se agregaron una sensibilidad del efecto neto (5.5) y un análisis exploratorio (5.7), que no cambian ninguna decisión. En `config.py` solo se agregó la sección 12 (datos reales); ninguna línea de las secciones 1 a 11 cambió (0 líneas quitadas).
+
+**En este documento** (02-10-2026):
 
 | sección | cambio | razón |
 |---|---|---|
@@ -571,6 +584,11 @@ Cambios respecto de la etiqueta `prerregistro-borrador-1` (commit `debbfbb`, "pr
 | 3.3 | Resumen de los resultados del control de calidad 2003-2020. | `resultados/` no se versiona. |
 | 4.8 | Número final de anuncios; 2:15 p.m. ET para los comunicados de la Fed anteriores a 2009 sin hora explícita; lista de lo no programado que se excluyó. | El calendario se armó desde las fuentes; algunos comunicados antiguos no dicen su hora. |
 | 8.10 | La réplica con HistData no es independiente en 2019-2020. | Hallazgo del control de calidad. |
+| 5.5 | Sensibilidad de "peor precio" en el efecto neto: entrada al máximo del ask (compra) o al mínimo del bid (venta) de la vela de ejecución, y salida al peor precio de la vela de salida. Se reporta para el criterio de paso y para H5; no cambia ninguna decisión. | En una ruptura agresiva, el precio de ejecución dentro del minuto puede ser peor que el cierre. Es una prueba de estrés sin parámetros, que crece sola con la volatilidad. |
+| 5.7 | Análisis descriptivo de supervivencia: Kaplan-Meier del tiempo desde la sostenida hasta el reingreso, censurado al fin de la franja, por franja y por moderador, comparado con los mercados simulados sin patrón (referencia aproximada). Sin p-valores confirmatorios; exploratorio. | Describir la superposición entre sostenidas y reingresos (71-73% en los mercados simulados) más allá de los horizontes fijos. |
+| 8.11 | Limitación del horizonte de 120 minutos: la causa del exceso de falsas alarmas no tiene explicación; las dos hipótesis del punto D (tercio de franja y volatilidad reciente) se probaron y se descartaron. | Dejar declarado lo que no se sabe. |
+
+Los tres últimos (5.5, 5.7 y 8.11) se decidieron sin ver ningún resultado: ninguna lectura de datos calculó retornos posteriores a eventos.
 
 **En el código y los datos del repositorio** (01-10-2026, etapa de datos, punto G de la bitácora):
 

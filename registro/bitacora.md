@@ -2718,3 +2718,28 @@ confirman, entran a la seccion de cambios con esa fecha y esa razon.
 con el aviso "version de lectura, NO congelada". Mismo camino que en el punto
 F: pandoc 3.10 (Markdown a HTML con una hoja de estilo de impresion) y Edge sin
 interfaz (`--headless --print-to-pdf`).
+
+### Agregados confirmados por el grupo (2026-10-02)
+
+El grupo confirmo los tres pedidos pendientes: "Nada mas cambia" protege el
+diseno confirmatorio (definiciones, pruebas, alfas y parametros) y estos no lo
+tocan. Se agregaron al pre-registro y a su seccion de cambios, con fecha
+02-10-2026 y la razon que dio el grupo:
+- **(i) 5.5, sensibilidad de "peor precio"** en el efecto neto: entrada al
+  maximo del ask (compra) o al minimo del bid (venta) de la vela de ejecucion y
+  salida al peor precio de la vela de salida; se reporta para el criterio de
+  paso y para H5, sin cambiar ninguna decision.
+- **(j) 5.7, Kaplan-Meier** del tiempo de la sostenida al reingreso,
+  censurado al fin de la franja, por franja y por moderador, comparado con los
+  mercados simulados sin patron (referencia aproximada); exploratorio, sin
+  p-valores confirmatorios.
+- **(k) 8.11, horizonte de 120 minutos**: la causa del exceso de falsas
+  alarmas no tiene explicacion; en el punto D se descartaron el tercio de
+  franja (la celda de reingreso a 120 siguio en 16%) y la volatilidad reciente
+  junto con el estadistico estudentizado (bajo a 14%, ruido con 50
+  mercados). Va como limitacion nueva porque la seccion 8 no tenia un item del
+  horizonte de 120; remite a 7.4.
+Los tres se decidieron sin ver ningun resultado: ninguna lectura de datos
+calculo retornos posteriores a eventos.
+
+PDF de lectura regenerado: `resultados/prerregistro_lectura_2026-10-02.pdf`.
