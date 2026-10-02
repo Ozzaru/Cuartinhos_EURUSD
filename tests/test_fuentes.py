@@ -366,3 +366,19 @@ def test_los_meses_fuera_de_alineacion_quedan_fuera_de_la_replica_con_histdata()
     duka = _duka([[1.1, 1.1002, 1.0999, 1.1001, 1.1001, 1.1003, 1.1, 1.1002, 1.0, 1.0]])
     duka.index = pd.DatetimeIndex(["2003-07-15 10:00"], tz="UTC")
     assert len(cargador.limpiar(duka, "dukascopy", cfg)) == 1
+
+
+def test_las_semanas_con_el_reloj_corrido_quedan_fuera_de_la_replica():
+    cfg = ayuda.cfg_prueba(HISTDATA_MESES_FUERA_DE_ALINEACION=(),
+                           HISTDATA_SEMANAS_FUERA_DE_ALINEACION=("2019-03-10",))
+    idx = pd.DatetimeIndex(["2019-03-08 21:59",     # viernes de la semana anterior
+                            "2019-03-10 21:00",     # domingo: empieza la semana corrida
+                            "2019-03-13 12:00",     # miercoles
+                            "2019-03-15 19:59",     # viernes: termina
+                            "2019-03-17 21:00"], tz="UTC")
+    tabla = pd.DataFrame([[1.1, 1.1, 1.1, 1.1, 0.0]] * 5, index=idx, columns=cargador.COLUMNAS_HISTDATA)
+    assert list(cargador.semana_de(idx)) == ["2019-03-03", "2019-03-10", "2019-03-10",
+                                             "2019-03-10", "2019-03-17"]
+    assert cargador.diagnostico(tabla, "histdata", cfg)["fuera_de_alineacion"].tolist() == [
+        False, True, True, True, False]
+    assert list(cargador.limpiar(tabla, "histdata", cfg).index) == [idx[0], idx[4]]

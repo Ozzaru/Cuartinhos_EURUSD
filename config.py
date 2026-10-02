@@ -339,11 +339,34 @@ HISTDATA_HORAS_A_UTC = 5                     # solo si HISTDATA_ZONA es None: UT
 # lo mostro (zona en +60 minutos todos los anos con EST fijo). Es un error de
 # manejo de la segunda fuente (pre-registro 3.3), no un cambio de definiciones.
 HISTDATA_ZONA = "America/New_York"
-# Meses (UTC) en que HistData sigue sin alinearse con Dukascopy aun con la hora
-# de Nueva York: mayo a julio de 2003 vinieron en EST fijo y los demas estan
-# corridos 1 o 2 minutos. NO se corrigen con desfases calculados: quedan fuera
-# de la replica con HistData (el cargador no los entrega para analisis). Los
-# encontro el control de calidad mes a mes (fuentes/calidad.py).
+# REGLA DE ALINEACION DE HISTDATA (decision del grupo, punto G, paso 3). Lo que
+# no queda alineado con Dukascopy NO se corrige con desfases calculados: queda
+# fuera de la replica con HistData (el cargador no lo entrega para analisis).
+#   1. Semana con el reloj corrido: la apertura del domingo Y el cierre del
+#      viernes de HistData, en la misma semana, estan ambos corridos una hora
+#      respecto de Nueva York (CALIDAD_RELOJ_CORRIDO_MIN +- CALIDAD_RELOJ_TOLERANCIA_MIN,
+#      mismo signo). Otras desviaciones (datos ralos que empiezan tarde,
+#      cierres media hora antes, feriados) no son un reloj corrido: se
+#      informan y no se excluyen.
+#   2. Mes fuera de alineacion: su desfase con Dukascopy (maximo de la
+#      correlacion, como en la zona horaria de 3.3) no es 0, medido despues de
+#      quitar las semanas del punto 1.
+# La regla se preciso despues de ver las tablas de calidad de 2003-2020 (solo
+# horas de apertura y cierre semanales y la zona mes a mes; ningun resultado),
+# para separar un reloj corrido de un dato faltante. Se aplicara sin cambios al
+# tramo sellado en la Etapa 5. fuentes/calidad.py la aplica en cada corrida y
+# verifica que encuentre exactamente estas dos listas.
+CALIDAD_RELOJ_CORRIDO_MIN = 60               # un reloj corrido mueve apertura y cierre una hora
+CALIDAD_RELOJ_TOLERANCIA_MIN = 10            # margen para el primer o ultimo dato de una fuente rala
+CALIDAD_DESVIO_INFORMADO_MIN = 45            # semanas de HistData con apertura o cierre a esta distancia o mas de Nueva York: se listan en el informe
+# Semanas (domingo de inicio, UTC) con el reloj corrido: en 2019 y 2020 HistData
+# cambia de horario en las fechas europeas y no en las de EE. UU.
+HISTDATA_SEMANAS_FUERA_DE_ALINEACION = (
+    "2019-03-10", "2019-03-17", "2019-03-24", "2019-10-27",
+    "2020-03-08", "2020-03-15", "2020-03-22", "2020-10-25",
+)
+# Meses (UTC) fuera de alineacion: mayo a julio de 2003 vinieron en EST fijo y
+# los demas estan corridos 1 o 2 minutos.
 HISTDATA_MESES_FUERA_DE_ALINEACION = (
     "2003-05", "2003-06", "2003-07", "2003-10", "2003-11", "2003-12",
     "2004-02", "2004-03", "2004-06", "2004-11", "2006-10",

@@ -35,10 +35,11 @@ Chequeos (todos por ano; los de una sola fuente, por fuente):
 Todo lo que no es "barras" (1) se calcula sin velas planas ni invalidas. Los
 chequeos de una sola fuente (semana, huecos, cobertura) usan todos sus meses;
 los que comparan fuentes (zona por ano, extremos, rupturas) usan la replica
-tal como la vera el analisis: sin los meses de HistData fuera de alineacion
-(HISTDATA_MESES_FUERA_DE_ALINEACION). La zona tambien se mide mes por mes con
-todos los meses, y esa tabla es la que muestra cuales estan fuera de
-alineacion.
+tal como la vera el analisis: sin los periodos de HistData fuera de alineacion.
+La regla de alineacion (config.py) se aplica en cada corrida y se verifica
+contra las listas de config: semanas con el reloj corrido (apertura y cierre
+de la misma semana corridos una hora) y meses con desfase distinto de 0, medidos
+sin esas semanas.
 
 Uso:
     python -m fuentes.calidad --desde 2016-01-01 --hasta 2016-01-31 --salida resultados/calidad_piloto.md
@@ -235,12 +236,14 @@ def chequeo_zona(limpias, anio, cfg):
 def chequeo_zona_mensual(limpias, anio, cfg):
     """
     El mismo calculo de la zona, mes por mes (UTC), con todos los meses de las
-    dos fuentes. Marca si el maximo esta en 0 y si el mes esta en
+    dos fuentes, SIN las semanas con el reloj corrido (punto 1 de la regla de
+    alineacion). Marca si el maximo esta en 0 y si el mes esta en
     HISTDATA_MESES_FUERA_DE_ALINEACION; `coincide` dice si las dos cosas
     calzan (un mes con el maximo fuera de 0 tiene que estar en la lista, y uno
     de la lista no tiene que tener el maximo en 0).
     """
     d, h = limpias["dukascopy"], limpias["histdata"]
+    h = h[~cargador.en_semanas(h.index, cfg.HISTDATA_SEMANAS_FUERA_DE_ALINEACION)]
     filas = []
     for mes in sorted(set(d.index.strftime("%Y-%m")) & set(h.index.strftime("%Y-%m"))):
         dm, hm = d[d.index.strftime("%Y-%m") == mes], h[h.index.strftime("%Y-%m") == mes]
@@ -261,6 +264,58 @@ def chequeo_zona_mensual(limpias, anio, cfg):
                       "pares_en_0": int(en_cero["pares"]), "fuera_de_alineacion": listado,
                       "coincide": (desfase != 0) == listado})
     return pd.DataFrame(filas)
+
+
+def _una_hora(minutos, cfg):
+    return abs(abs(minutos) - cfg.CALIDAD_RELOJ_CORRIDO_MIN) <= cfg.CALIDAD_RELOJ_TOLERANCIA_MIN
+
+
+def semanas_reloj_corrido(semanas, desde, hasta, cfg):
+    """
+    Punto 1 de la regla de alineacion, sobre la tabla de semanas (una fila por
+    cierre de fin de semana): para cada semana de mercado de HistData (domingo
+    S a viernes S+5), su apertura (fila del domingo S) y su cierre (fila del
+    domingo S+7). Reloj corrido = las dos corridas una hora, con el mismo signo.
+
+    Devuelve las semanas con el reloj corrido, las listadas en config y las
+    que tienen una desviacion de CALIDAD_DESVIO_INFORMADO_MIN o mas (se
+    informan, no se excluyen), con la apertura y el cierre de Dukascopy al
+    lado (un feriado mueve a las dos fuentes).
+    """
+    columnas = ["semana", "apertura_vs_ny_min", "cierre_vs_ny_min", "dukascopy_apertura_vs_ny_min",
+                "dukascopy_cierre_vs_ny_min", "reloj_corrido", "listada", "coincide"]
+    if semanas is None or not len(semanas):
+        return pd.DataFrame(columns=columnas)
+    series = {}
+    for fuente in ("histdata", "dukascopy"):
+        g = semanas[semanas["fuente"] == fuente]
+        idx = pd.DatetimeIndex(pd.to_datetime(g["domingo"].astype(str)))
+        series[fuente] = (pd.Series(g["apertura_vs_ny_min"].to_numpy(float), index=idx),
+                          pd.Series(g["cierre_vs_ny_min"].to_numpy(float), index=idx))
+    ap_h, ci_h = series["histdata"]
+    ap_d, ci_d = series["dukascopy"]
+    siete = pd.Timedelta(days=7)
+    filas = []
+    for s in ap_h.index:
+        ap, ci = ap_h.get(s), ci_h.get(s + siete, np.nan)
+        corrido = (np.isfinite(ap) and np.isfinite(ci) and _una_hora(ap, cfg) and _una_hora(ci, cfg)
+                   and np.sign(ap) == np.sign(ci))
+        filas.append({"semana": s.strftime("%Y-%m-%d"), "apertura_vs_ny_min": ap, "cierre_vs_ny_min": ci,
+                      "dukascopy_apertura_vs_ny_min": ap_d.get(s, np.nan),
+                      "dukascopy_cierre_vs_ny_min": ci_d.get(s + siete, np.nan),
+                      "reloj_corrido": bool(corrido)})
+    tabla = pd.DataFrame(filas, columns=columnas[:-2])
+    en_rango = [w for w in cfg.HISTDATA_SEMANAS_FUERA_DE_ALINEACION if desde <= w <= hasta]
+    faltan = [w for w in en_rango if w not in set(tabla["semana"])]
+    if faltan:
+        tabla = pd.concat([tabla, pd.DataFrame({"semana": faltan, "reloj_corrido": False})],
+                          ignore_index=True)
+    tabla["listada"] = tabla["semana"].isin(en_rango)
+    tabla["coincide"] = tabla["reloj_corrido"] == tabla["listada"]
+    desvio = ((tabla["apertura_vs_ny_min"].abs() >= cfg.CALIDAD_DESVIO_INFORMADO_MIN)
+              | (tabla["cierre_vs_ny_min"].abs() >= cfg.CALIDAD_DESVIO_INFORMADO_MIN))
+    tabla = tabla[tabla["reloj_corrido"] | tabla["listada"] | desvio]
+    return tabla.sort_values("semana").reset_index(drop=True)[columnas]
 
 
 # -----------------------------------------------------------------------------
@@ -514,8 +569,11 @@ def correr(desde, hasta, cfg=None, repo=None, fuentes=None):
                                           proposito=cargador.PROPOSITO_CALIDAD, cfg=cfg, repo=repo)
         for nombre, partes in analizar_anio(datos, anio, a_desde, cfg).items():
             tablas.setdefault(nombre, []).extend(partes)
-    return {k: pd.concat([p for p in v if len(p)], ignore_index=True) if any(len(p) for p in v)
-            else pd.DataFrame() for k, v in tablas.items()}
+    tablas = {k: pd.concat([p for p in v if len(p)], ignore_index=True) if any(len(p) for p in v)
+              else pd.DataFrame() for k, v in tablas.items()}
+    if {"dukascopy", "histdata"} <= set(fuentes):
+        tablas["alineacion_semanas"] = semanas_reloj_corrido(tablas.get("semanas"), desde, hasta, cfg)
+    return tablas
 
 
 # -----------------------------------------------------------------------------
@@ -580,21 +638,48 @@ def informe(tablas, desde, hasta, cfg, segundos, titulo="Control de calidad de l
                   "equivocada por mas de dos horas.\n")
     partes.append(_md(t.get("zona"), 4))
     zm = t.get("zona_mensual")
+    sem = t.get("alineacion_semanas")
     if zm is not None and len(zm):
         partes.append(f"\nHistData se convierte con la zona `{cfg.HISTDATA_ZONA}` (hora de Nueva York "
                       "con horario de verano): sus archivos vienen asi, contra lo que dice su "
-                      "documentacion (EST fijo). La tabla de arriba usa la replica sin los meses "
+                      "documentacion (EST fijo). La tabla de arriba usa la replica sin los periodos "
                       "fuera de alineacion.\n\n")
-        partes.append(f"**Zona mes por mes** (todos los meses, {len(zm)} en total): "
-                      f"{int((zm['desfase_del_maximo'] == 0).sum())} con el maximo en 0. "
-                      "Meses con el maximo fuera de 0 o marcados fuera de alineacion "
-                      "(`HISTDATA_MESES_FUERA_DE_ALINEACION`; quedan fuera de la replica con "
-                      "HistData, no se corrigen):\n\n")
+        partes.append("### Regla de alineacion de HistData\n\n"
+                      "Lo que no queda alineado con Dukascopy no se corrige con desfases calculados: "
+                      "queda fuera de la replica con HistData. El analisis principal (Dukascopy) no "
+                      "cambia.\n\n"
+                      f"1. **Semana con el reloj corrido**: la apertura del domingo y el cierre del "
+                      f"viernes de HistData, en la misma semana, estan ambos corridos una hora "
+                      f"respecto de Nueva York ({cfg.CALIDAD_RELOJ_CORRIDO_MIN} +- "
+                      f"{cfg.CALIDAD_RELOJ_TOLERANCIA_MIN} minutos, mismo signo).\n"
+                      "2. **Mes fuera de alineacion**: su desfase con Dukascopy no es 0, medido "
+                      "despues de quitar las semanas del punto 1.\n\n"
+                      "La regla se preciso despues de ver las tablas de calidad de 2003-2020 (solo "
+                      "horas de apertura y cierre semanales y la zona mes a mes; ningun resultado), "
+                      "para separar un reloj corrido de un dato faltante. Se aplicara sin cambios al "
+                      "tramo sellado en la Etapa 5.\n\n")
+        if sem is not None and len(sem):
+            corridas = sem[sem["reloj_corrido"]]
+            partes.append(f"**Semanas con el reloj corrido** (excluidas): {len(corridas)}.\n\n")
+            partes.append(_md(corridas, 1))
+            otras = sem[~sem["reloj_corrido"] & ~sem["listada"]]
+            partes.append(f"\nOtras semanas de HistData con la apertura o el cierre a "
+                          f"{cfg.CALIDAD_DESVIO_INFORMADO_MIN} minutos o mas de Nueva York: datos ralos "
+                          f"(el primer dato llega tarde, faltan dias) o feriados (la columna de "
+                          f"Dukascopy muestra si el mercado tambien se movio). **No se excluyen**: "
+                          f"{len(otras)}.\n\n")
+            partes.append(_md(otras, 1))
+        partes.append(f"\n**Zona mes por mes** (sin las semanas con el reloj corrido; {len(zm)} meses): "
+                      f"{int((zm['desfase_del_maximo'] == 0).sum())} con el maximo en 0. Meses fuera de "
+                      "alineacion (excluidos):\n\n")
         partes.append(_md(zm[(zm["desfase_del_maximo"] != 0) | zm["fuera_de_alineacion"]], 4))
-        if not zm["coincide"].all():
-            partes.append("\n**ATENCION: hay meses donde la lista y la medicion no coinciden.**\n")
+        coinciden = bool(zm["coincide"].all()) and (sem is None or not len(sem) or bool(sem["coincide"].all()))
+        if coinciden:
+            partes.append("\nLa regla encuentra exactamente las semanas y los meses de config.py "
+                          "(`HISTDATA_SEMANAS_FUERA_DE_ALINEACION`, `HISTDATA_MESES_FUERA_DE_ALINEACION`).\n")
         else:
-            partes.append("\nLa lista y la medicion coinciden en todos los meses.\n")
+            partes.append("\n**ATENCION: la regla no encuentra exactamente las semanas y los meses de "
+                          "config.py. Hay que revisarlo antes de seguir.**\n")
     if "zona_detalle" in t and len(t["zona_detalle"]):
         cerca = t["zona_detalle"][t["zona_detalle"]["desfase_min"].abs() <= 3]
         partes.append("\nDesfases cercanos a 0:\n\n" + _md(cerca, 4))

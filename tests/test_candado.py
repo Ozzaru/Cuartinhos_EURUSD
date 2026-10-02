@@ -343,3 +343,29 @@ def test_solo_el_cargador_lee_los_archivos_de_precios():
                 assert not re.search(r"read_parquet|read_table|ParquetFile", texto), relativo
             if re.search(r"RUTA_(CRUDOS|PROCESADOS)", texto):
                 assert relativo in pueden_ver_rutas, relativo
+
+
+def test_regla_del_reloj_corrido():
+    # Una fila por cierre de fin de semana: el cierre del viernes anterior y
+    # la apertura del domingo. Semanas de mercado: 03-03, 03-10, 03-17, 03-24.
+    domingos = ["2019-03-03", "2019-03-10", "2019-03-17", "2019-03-24", "2019-03-31"]
+    hist = pd.DataFrame({"fuente": "histdata", "domingo": domingos,
+                         "apertura_vs_ny_min": [0, -60, 180, -55, 0],
+                         "cierre_vs_ny_min": [0, 0, -60, -30, -60]})
+    duka = hist.assign(fuente="dukascopy", apertura_vs_ny_min=0, cierre_vs_ny_min=0)
+    cfg = ayuda.cfg_prueba(HISTDATA_SEMANAS_FUERA_DE_ALINEACION=("2019-03-24",))
+    tabla = calidad.semanas_reloj_corrido(pd.concat([hist, duka]), "2019-03-01", "2019-03-31", cfg)
+    por = tabla.set_index("semana")
+    # 03-10: apertura -60 y cierre -60 -> corrido. 03-17: apertura +180 (dato
+    # tardio) -> se informa, no se excluye. 03-24: apertura -55, cierre -60 ->
+    # corrido (tolerancia de 10 min).
+    assert bool(por.loc["2019-03-10", "reloj_corrido"])
+    assert not bool(por.loc["2019-03-17", "reloj_corrido"])
+    assert bool(por.loc["2019-03-24", "reloj_corrido"])
+    # La lista de config tiene solo 03-24: 03-10 no coincide.
+    assert not bool(por.loc["2019-03-10", "coincide"]) and bool(por.loc["2019-03-24", "coincide"])
+    # Signos distintos no son un reloj corrido.
+    hist2 = hist.assign(apertura_vs_ny_min=[0, -60, 0, 0, 0], cierre_vs_ny_min=[0, 0, 60, 0, 0])
+    t2 = calidad.semanas_reloj_corrido(pd.concat([hist2, duka]), "2019-03-01", "2019-03-31",
+                                       ayuda.cfg_prueba(HISTDATA_SEMANAS_FUERA_DE_ALINEACION=()))
+    assert not t2["reloj_corrido"].any()

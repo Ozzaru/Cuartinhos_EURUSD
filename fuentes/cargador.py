@@ -294,8 +294,9 @@ def diagnostico(datos, fuente, cfg=None):
       spread       ask - bid <= 0 en alguno de los cuatro precios (Dukascopy).
       invalida     barra no plana con cualquiera de los problemas anteriores.
       fuera_de_alineacion  HistData: la barra cae en un mes de
-                   HISTDATA_MESES_FUERA_DE_ALINEACION (no es invalida: queda
-                   fuera de la replica).
+                   HISTDATA_MESES_FUERA_DE_ALINEACION o en una semana de
+                   HISTDATA_SEMANAS_FUERA_DE_ALINEACION (no es invalida: queda
+                   fuera de la replica). La regla esta en config.py.
     """
     cfg = cfg or config
     n = len(datos)
@@ -318,10 +319,25 @@ def diagnostico(datos, fuente, cfg=None):
     marcas["invalida"] = ~marcas["plana"] & marcas[problemas].any(axis=1)
     if fuente == "histdata":
         meses = datos.index.strftime("%Y-%m")
-        marcas["fuera_de_alineacion"] = np.isin(meses, list(cfg.HISTDATA_MESES_FUERA_DE_ALINEACION))
+        marcas["fuera_de_alineacion"] = (
+            np.isin(meses, list(cfg.HISTDATA_MESES_FUERA_DE_ALINEACION))
+            | en_semanas(datos.index, cfg.HISTDATA_SEMANAS_FUERA_DE_ALINEACION))
     else:
         marcas["fuera_de_alineacion"] = np.zeros(n, dtype=bool)
     return marcas
+
+
+def semana_de(indice):
+    """El domingo (UTC, 'AAAA-MM-DD') con que empieza la semana de mercado de cada barra."""
+    dias = (indice.dayofweek.to_numpy() + 1) % 7          # domingo 0, lunes 1, ..., sabado 6
+    return (indice.normalize() - pd.to_timedelta(dias, unit="D")).strftime("%Y-%m-%d")
+
+
+def en_semanas(indice, domingos):
+    """True para las barras de las semanas de mercado que empiezan en `domingos`."""
+    if len(indice) == 0 or not domingos:
+        return np.zeros(len(indice), dtype=bool)
+    return np.isin(semana_de(indice), list(domingos))
 
 
 def limpiar_barras(datos, fuente, cfg=None):
