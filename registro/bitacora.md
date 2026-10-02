@@ -2566,7 +2566,7 @@ Tests: 325 pasan, 0 avisos.
 | chequeo | resultado |
 |---|---|
 | zona por ano (replica) | maximo en 0 los 18 anos (barrido de +-15 h tambien); correlacion 0,51-0,77 en 2003-2007 y 0,71-0,99 desde 2008 | **cumple** |
-| rupturas coincidentes (replica) | 91,6%-99,8%, todos los anos >= 90%; a 2 min o menos, 69%-90% hasta 2011 y 94%-97% desde 2012 | **cumple** |
+| rupturas coincidentes (replica) | 91,6%-99,8%, todos los anos >= 90%; a 2 min o menos, 69%-90% hasta 2011 y 93%-97% desde 2012 | **cumple** |
 | integridad | sin cambios (Dukascopy 125 invalidas, 0,034% max.; HistData 0) | **cumple** |
 | extremos | mediana 0,0-0,1 pips desde 2015; 2-5 pips antes de 2010 (HistData mas alto) | informativo |
 | zona mes por mes | 212 meses; 199 con el maximo en 0; los 11 de la lista coinciden con la medicion | ver abajo |
