@@ -30,7 +30,8 @@ Pre-registro, seccion 2.4, y regla 3 del punto G. Hace tres cosas.
    la misma regla y queda anotada como lectura de calidad.
 
 3. QUE BARRA CUENTA (`diagnostico` y `limpiar`). Pasan a faltantes, sin
-   corregirlas (pre-registro 3.3 y 3.4):
+   corregirlas (pre-registro 3.3 y 3.4), y ademas, solo en HistData, los meses
+   de HISTDATA_MESES_FUERA_DE_ALINEACION (decision del grupo, punto G):
    - las velas planas de Dukascopy: minutos sin ticks, que la exportacion
      rellena con volumen 0 (incluido el fin de semana);
    - las barras invalidas: maximo < apertura o cierre, minimo > apertura o
@@ -271,7 +272,7 @@ def leer(fuente, desde, hasta, proposito, abrir=None, cfg=None, repo=None):
 
     datos = pd.concat([pd.read_parquet(a) for a in archivos])
     datos = datos[(datos.index >= ini) & (datos.index < fin)]
-    return datos if proposito == PROPOSITO_CALIDAD else limpiar(datos, fuente)
+    return datos if proposito == PROPOSITO_CALIDAD else limpiar(datos, fuente, cfg)
 
 
 # -----------------------------------------------------------------------------
@@ -283,7 +284,7 @@ def _ohlc_roto(datos, lado):
     return ~sano.to_numpy()
 
 
-def diagnostico(datos, fuente):
+def diagnostico(datos, fuente, cfg=None):
     """
     Una fila por barra, con marcas booleanas:
       plana        Dukascopy: volumen 0 en algun lado (minuto sin ticks).
@@ -292,7 +293,11 @@ def diagnostico(datos, fuente):
       ohlc_ask     lo mismo en el ask (Dukascopy).
       spread       ask - bid <= 0 en alguno de los cuatro precios (Dukascopy).
       invalida     barra no plana con cualquiera de los problemas anteriores.
+      fuera_de_alineacion  HistData: la barra cae en un mes de
+                   HISTDATA_MESES_FUERA_DE_ALINEACION (no es invalida: queda
+                   fuera de la replica).
     """
+    cfg = cfg or config
     n = len(datos)
     marcas = pd.DataFrame(index=datos.index)
     if fuente == "dukascopy":
@@ -311,13 +316,27 @@ def diagnostico(datos, fuente):
         marcas["ohlc_bid"] = _ohlc_roto(datos, "bid")
     problemas = [c for c in marcas.columns if c != "plana"]
     marcas["invalida"] = ~marcas["plana"] & marcas[problemas].any(axis=1)
+    if fuente == "histdata":
+        meses = datos.index.strftime("%Y-%m")
+        marcas["fuera_de_alineacion"] = np.isin(meses, list(cfg.HISTDATA_MESES_FUERA_DE_ALINEACION))
+    else:
+        marcas["fuera_de_alineacion"] = np.zeros(n, dtype=bool)
     return marcas
 
 
-def limpiar(datos, fuente):
-    """Solo las barras que cuentan: sin velas planas ni barras invalidas."""
-    marcas = diagnostico(datos, fuente)
+def limpiar_barras(datos, fuente, cfg=None):
+    """Sin velas planas ni barras invalidas (la fuente tal cual, todos sus meses)."""
+    marcas = diagnostico(datos, fuente, cfg)
     return datos[~(marcas["plana"] | marcas["invalida"]).to_numpy()]
+
+
+def limpiar(datos, fuente, cfg=None):
+    """
+    Solo las barras que cuentan para el analisis: sin velas planas, sin barras
+    invalidas y, en HistData, sin los meses fuera de alineacion.
+    """
+    marcas = diagnostico(datos, fuente, cfg)
+    return datos[~(marcas["plana"] | marcas["invalida"] | marcas["fuera_de_alineacion"]).to_numpy()]
 
 
 # -----------------------------------------------------------------------------

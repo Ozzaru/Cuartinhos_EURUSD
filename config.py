@@ -333,12 +333,21 @@ DESCARGA_TOPE = SELLADO[0]                   # nada desde esta fecha se descarga
 HISTDATA_PAGINA = "https://www.histdata.com/download-free-forex-historical-data/?/ascii/1-minute-bar-quotes/eurusd/{anio}"
 HISTDATA_POST = "https://www.histdata.com/get.php"   # el formulario de la pagina pide el archivo con un token por pagina
 HISTDATA_ANIOS = (2003, 2020)                # anos completos que se bajan (primer ano de Dukascopy hasta el fin de validacion)
-HISTDATA_HORAS_A_UTC = 5                     # HistData publica en EST fijo (UTC-5, sin horario de verano): UTC = EST + 5 h
-# Diagnostico del punto G (paso 3): el control de calidad muestra que HistData
-# sigue la hora de Nueva York CON horario de verano. None = la regla del
-# pre-registro (EST fijo, +5 h); un nombre de zona ("America/New_York")
-# convierte con la base de zonas. No se cambia sin decision del grupo.
-HISTDATA_ZONA = None
+HISTDATA_HORAS_A_UTC = 5                     # solo si HISTDATA_ZONA es None: UTC = hora del archivo + 5 h (EST fijo, lo que dice la documentacion de HistData)
+# Decision del grupo (punto G, paso 3): HistData viene en hora de Nueva York CON
+# horario de verano, contra lo que dice su documentacion. El control de calidad
+# lo mostro (zona en +60 minutos todos los anos con EST fijo). Es un error de
+# manejo de la segunda fuente (pre-registro 3.3), no un cambio de definiciones.
+HISTDATA_ZONA = "America/New_York"
+# Meses (UTC) en que HistData sigue sin alinearse con Dukascopy aun con la hora
+# de Nueva York: mayo a julio de 2003 vinieron en EST fijo y los demas estan
+# corridos 1 o 2 minutos. NO se corrigen con desfases calculados: quedan fuera
+# de la replica con HistData (el cargador no los entrega para analisis). Los
+# encontro el control de calidad mes a mes (fuentes/calidad.py).
+HISTDATA_MESES_FUERA_DE_ALINEACION = (
+    "2003-05", "2003-06", "2003-07", "2003-10", "2003-11", "2003-12",
+    "2004-02", "2004-03", "2004-06", "2004-11", "2006-10",
+)
 PRECIO_PLAUSIBLE = (0.5, 2.5)                # el EUR/USD nunca salio de este rango: un precio fuera delata una linea mal leida
 DESCARGA_PAUSA_SEG = 10                      # pausa entre pedidos a un mismo servidor
 DESCARGA_REINTENTOS = 5                      # intentos por archivo; la espera crece con cada intento
@@ -367,3 +376,11 @@ HORA_BLS = (8, 30)                           # hora (ET) de Employment Situation
 VERIFICACION_BLS_ANIOS = (2003, 2008, 2013, 2018)   # anos de la muestra (primer comunicado del ano de cada serie, mas los atrasados de oct-2013)
 HORA_BCE = (13, 45)                          # regla publicada del BCE para sus decisiones (CET), hasta el 20-07-2022
 HORA_BCE_DESDE_2022 = ("2022-07-21", (14, 15))   # desde esa fecha, 14:15 CET
+# Comunicados del FOMC anteriores a 2009 cuya hora no dicen ni el comunicado ni
+# las minutas (2003 a junio de 2006, y el del 25-06-2008, con minutas solo en
+# PDF): se usa la practica de la Fed en esos anos, 2:15 p.m. ET (decision del
+# grupo). El PDF de las minutas del 25-06-2008 lo confirma ("to be released at
+# 2:15 p.m.").
+FOMC_HORA_PRACTICA = (14, 15)
+FOMC_PRACTICA_HASTA = "2008-12-31"
+FOMC_HORA_CONFIRMADA_EN_PDF = ("2008-06-25",)   # minutas en PDF leidas para confirmar la hora

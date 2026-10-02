@@ -32,8 +32,13 @@ Chequeos (todos por ano; los de una sola fuente, por fuente):
      direccion" (al menos 90%) y, cuando coinciden, diferencia de hora de 2
      minutos o menos.
 
-Todo lo que no es "barras" (1) se calcula sobre las barras que cuentan: sin
-velas planas ni invalidas, igual que las vera el analisis.
+Todo lo que no es "barras" (1) se calcula sin velas planas ni invalidas. Los
+chequeos de una sola fuente (semana, huecos, cobertura) usan todos sus meses;
+los que comparan fuentes (zona por ano, extremos, rupturas) usan la replica
+tal como la vera el analisis: sin los meses de HistData fuera de alineacion
+(HISTDATA_MESES_FUERA_DE_ALINEACION). La zona tambien se mide mes por mes con
+todos los meses, y esa tabla es la que muestra cuales estan fuera de
+alineacion.
 
 Uso:
     python -m fuentes.calidad --desde 2016-01-01 --hasta 2016-01-31 --salida resultados/calidad_piloto.md
@@ -150,7 +155,7 @@ def chequeo_formato(datos, fuente, anio, cfg):
 #  1. Barras
 # -----------------------------------------------------------------------------
 def chequeo_barras(datos, fuente, anio, cfg):
-    marcas = cargador.diagnostico(datos, fuente)
+    marcas = cargador.diagnostico(datos, fuente, cfg)
     no_planas = int((~marcas["plana"]).sum())
     invalidas = int(marcas["invalida"].sum())
     fila = {"anio": anio, "fuente": fuente, "barras": len(datos),
@@ -158,7 +163,7 @@ def chequeo_barras(datos, fuente, anio, cfg):
             "invalidas": invalidas,
             "pct_invalidas": invalidas / no_planas if no_planas else np.nan}
     validas = ~marcas["plana"]
-    for motivo in [c for c in marcas.columns if c not in ("plana", "invalida")]:
+    for motivo in [c for c in marcas.columns if c not in ("plana", "invalida", "fuera_de_alineacion")]:
         fila[f"inv_{motivo}"] = int((marcas[motivo] & validas).sum())
     if fuente == "dukascopy":
         un_lado = (datos["bid_volumen"] == 0) != (datos["ask_volumen"] == 0)
@@ -168,6 +173,8 @@ def chequeo_barras(datos, fuente, anio, cfg):
         dia, hora = datos.index.dayofweek, datos.index.hour
         finde = (dia == 5) | ((dia == 4) & (hora >= 22)) | ((dia == 6) & (hora < 21))
         fila["planas_mercado_abierto"] = int((marcas["plana"].to_numpy() & ~finde).sum())
+    if fuente == "histdata":
+        fila["fuera_de_alineacion"] = int(marcas["fuera_de_alineacion"].sum())
     fila["cumple"] = bool(fila["pct_invalidas"] < cfg.CALIDAD_MAX_INVALIDAS)
     return fila
 
@@ -223,6 +230,37 @@ def chequeo_zona(limpias, anio, cfg):
     resumen["desfase_del_maximo_amplio"] = int(mejor_amplio["desfase_min"])
     resumen["correlacion_maxima_amplia"] = float(mejor_amplio["correlacion"])
     return resumen, detalle
+
+
+def chequeo_zona_mensual(limpias, anio, cfg):
+    """
+    El mismo calculo de la zona, mes por mes (UTC), con todos los meses de las
+    dos fuentes. Marca si el maximo esta en 0 y si el mes esta en
+    HISTDATA_MESES_FUERA_DE_ALINEACION; `coincide` dice si las dos cosas
+    calzan (un mes con el maximo fuera de 0 tiene que estar en la lista, y uno
+    de la lista no tiene que tener el maximo en 0).
+    """
+    d, h = limpias["dukascopy"], limpias["histdata"]
+    filas = []
+    for mes in sorted(set(d.index.strftime("%Y-%m")) & set(h.index.strftime("%Y-%m"))):
+        dm, hm = d[d.index.strftime("%Y-%m") == mes], h[h.index.strftime("%Y-%m") == mes]
+        grilla = pd.date_range(min(dm.index.min(), hm.index.min()),
+                               max(dm.index.max(), hm.index.max()), freq="min")
+        a = np.diff(np.log(dm["bid_close"].reindex(grilla).to_numpy(float)))
+        b = np.diff(np.log(hm["bid_close"].reindex(grilla).to_numpy(float)))
+        detalle = correlacion_por_desfase(a, b, cfg.CALIDAD_DESFASE_MAX_MIN)
+        if detalle["correlacion"].notna().any():
+            mejor = detalle.loc[detalle["correlacion"].idxmax()]
+            desfase, maxima = int(mejor["desfase_min"]), float(mejor["correlacion"])
+        else:
+            desfase, maxima = None, np.nan
+        en_cero = detalle.loc[detalle["desfase_min"] == 0].iloc[0]
+        listado = mes in cfg.HISTDATA_MESES_FUERA_DE_ALINEACION
+        filas.append({"anio": anio, "mes": mes, "desfase_del_maximo": desfase,
+                      "correlacion_maxima": maxima, "correlacion_en_0": float(en_cero["correlacion"]),
+                      "pares_en_0": int(en_cero["pares"]), "fuera_de_alineacion": listado,
+                      "coincide": (desfase != 0) == listado})
+    return pd.DataFrame(filas)
 
 
 # -----------------------------------------------------------------------------
@@ -410,28 +448,38 @@ def analizar_anio(datos, anio, a_desde, cfg):
     inicio = pd.Timestamp(a_desde.isoformat(), tz="UTC")
     salida = {k: [] for k in ("formato", "barras", "semanas", "huecos", "cobertura", "verano_franjas",
                               "spread", "spread_hora", "spread_alto")}
-    limpias, barras, cals = {}, {}, {}
+    limpias, replicas, barras, cals, cals_fuente = {}, {}, {}, {}, {}
     for fuente, tabla in datos.items():
         del_anio = tabla[tabla.index >= inicio]
         salida["formato"].append(pd.DataFrame([chequeo_formato(del_anio, fuente, anio, cfg)]))
         salida["barras"].append(pd.DataFrame([chequeo_barras(del_anio, fuente, anio, cfg)]))
-        limpia = cargador.limpiar(tabla, fuente)
-        limpias[fuente] = limpia
-        barras[fuente] = _barras_bid(limpia, cfg)
-        cals[fuente] = franjas.calendario(barras[fuente], cfg)
+        # La fuente con todos sus meses (chequeos de una sola fuente) y la
+        # replica tal como la vera el analisis (chequeos entre fuentes).
+        limpia = cargador.limpiar_barras(tabla, fuente, cfg)
+        replica = cargador.limpiar(tabla, fuente, cfg)
+        limpias[fuente], replicas[fuente] = limpia, replica
+        cals_fuente[fuente] = franjas.calendario(_barras_bid(limpia, cfg), cfg)
+        if len(replica) == len(limpia):
+            barras[fuente] = _barras_bid(limpia, cfg)
+            cals[fuente] = cals_fuente[fuente]
+        else:
+            barras[fuente] = _barras_bid(replica, cfg)
+            cals[fuente] = franjas.calendario(barras[fuente], cfg)
         salida["semanas"].append(chequeo_semanas(limpia, fuente, anio, cfg))
         salida["huecos"].append(chequeo_huecos(limpia, fuente, anio, cfg))
-        salida["cobertura"].append(pd.DataFrame([chequeo_cobertura(cals[fuente], fuente, anio, cfg)]))
+        salida["cobertura"].append(pd.DataFrame([chequeo_cobertura(cals_fuente[fuente], fuente, anio, cfg)]))
         if fuente == "dukascopy":
             resumen, por_hora, altos = chequeo_spread(limpia[limpia.index >= inicio], anio, cfg)
             salida["spread"].append(pd.DataFrame([resumen]))
             salida["spread_hora"].append(por_hora)
             salida["spread_alto"].append(altos)
-    salida["verano_franjas"].append(chequeo_franjas_verano(next(iter(cals.values())), anio, cfg))
+    salida["verano_franjas"].append(chequeo_franjas_verano(next(iter(cals_fuente.values())), anio, cfg))
 
     if {"dukascopy", "histdata"} <= set(datos):
         limpias_anio = {f: t[t.index >= inicio] for f, t in limpias.items()}
-        resumen, detalle = chequeo_zona(limpias_anio, anio, cfg)
+        replicas_anio = {f: t[t.index >= inicio] for f, t in replicas.items()}
+        salida["zona_mensual"] = [chequeo_zona_mensual(limpias_anio, anio, cfg)]
+        resumen, detalle = chequeo_zona(replicas_anio, anio, cfg)
         salida["zona"] = [pd.DataFrame([resumen])]
         salida["zona_detalle"] = [detalle]
         salida["extremos"] = [pd.DataFrame([chequeo_extremos(cals, anio, cfg)])]
@@ -531,6 +579,22 @@ def informe(tablas, desde, hasta, cfg, segundos, titulo="Control de calidad de l
                   f"{cfg.CALIDAD_DESFASE_DIAGNOSTICO_MIN // 60} horas, para ver una zona "
                   "equivocada por mas de dos horas.\n")
     partes.append(_md(t.get("zona"), 4))
+    zm = t.get("zona_mensual")
+    if zm is not None and len(zm):
+        partes.append(f"\nHistData se convierte con la zona `{cfg.HISTDATA_ZONA}` (hora de Nueva York "
+                      "con horario de verano): sus archivos vienen asi, contra lo que dice su "
+                      "documentacion (EST fijo). La tabla de arriba usa la replica sin los meses "
+                      "fuera de alineacion.\n\n")
+        partes.append(f"**Zona mes por mes** (todos los meses, {len(zm)} en total): "
+                      f"{int((zm['desfase_del_maximo'] == 0).sum())} con el maximo en 0. "
+                      "Meses con el maximo fuera de 0 o marcados fuera de alineacion "
+                      "(`HISTDATA_MESES_FUERA_DE_ALINEACION`; quedan fuera de la replica con "
+                      "HistData, no se corrigen):\n\n")
+        partes.append(_md(zm[(zm["desfase_del_maximo"] != 0) | zm["fuera_de_alineacion"]], 4))
+        if not zm["coincide"].all():
+            partes.append("\n**ATENCION: hay meses donde la lista y la medicion no coinciden.**\n")
+        else:
+            partes.append("\nLa lista y la medicion coinciden en todos los meses.\n")
     if "zona_detalle" in t and len(t["zona_detalle"]):
         cerca = t["zona_detalle"][t["zona_detalle"]["desfase_min"].abs() <= 3]
         partes.append("\nDesfases cercanos a 0:\n\n" + _md(cerca, 4))
@@ -589,14 +653,15 @@ def informe(tablas, desde, hasta, cfg, segundos, titulo="Control de calidad de l
     if "extremos" in t:
         partes.append("## 7. Extremos por franja\n")
         partes.append("Diferencia de H y L del bid entre fuentes (Dukascopy - HistData), en pips, "
-                      "en las franjas con cobertura minima en las dos.\n")
+                      "en las franjas con cobertura minima en las dos (replica: sin los meses "
+                      "fuera de alineacion).\n")
         partes.append(_md(t["extremos"], 3))
 
     if "rupturas" in t:
         partes.append("## 8. Rupturas coincidentes\n")
         partes.append(f"Detector del motor (`motor.rupturas`) sobre el bid de las dos fuentes, "
                       f"umbral {cfg.UMBRAL_PIPS:g} pip, en las franjas con referencia valida en "
-                      f"las dos. Acuerdo = misma categoria (sin ruptura, alcista, bajista o "
+                      f"las dos (replica: sin los meses fuera de alineacion). Acuerdo = misma categoria (sin ruptura, alcista, bajista o "
                       f"ambigua). Criterio: al menos {cfg.CALIDAD_ACUERDO_MIN:.0%}; entre "
                       f"{cfg.CALIDAD_ACUERDO_ALERTA:.0%} y {cfg.CALIDAD_ACUERDO_MIN:.0%}, advertencia; "
                       f"menos de {cfg.CALIDAD_ACUERDO_ALERTA:.0%}, se detiene la etapa de datos. "

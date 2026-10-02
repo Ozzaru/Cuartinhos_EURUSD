@@ -23,9 +23,11 @@ Reglas (pre-registro 4.8):
     reunion sin comunicado. La hora sale del comunicado ("For release at 2:15
     p.m. EST"). Los mas antiguos dicen "For immediate release", sin hora:
     entonces sale de las minutas de esa misma reunion ("...statement to be
-    released at 2:15 p.m."). Si tampoco las minutas la dicen (las de 2003
-    dicen "to be released shortly after the meeting"), el anuncio va a
-    pendientes.csv.
+    released at 2:15 p.m."). Si tampoco las minutas la dicen (las de 2003 a
+    2006 dicen "to be released shortly after the meeting") y el comunicado es
+    anterior a 2009, se usa la practica de la Fed en esos anos, 2:15 p.m. ET
+    (decision del grupo), rotulada asi en `fuente_hora`. Uno posterior sin hora
+    iria a pendientes.csv.
   - BLS: Employment Situation (empleo) y Consumer Price Index (ipc). La fecha
     real sale de las paginas de archivo de cada serie, que listan cada
     comunicado con su fecha de publicacion (tambien los atrasados, como los de
@@ -218,6 +220,19 @@ def fecha_del_comunicado(html):
     return dt.date(int(m.group(3)), _MESES[m.group(1).lower()], int(m.group(2)))
 
 
+def hora_por_practica(fecha, cfg):
+    """
+    (hora, fuente) para un comunicado del FOMC sin hora en la fuente: la
+    practica de la Fed (2:15 p.m. ET) hasta FOMC_PRACTICA_HASTA; despues, (None, None).
+    """
+    if fecha > dt.date.fromisoformat(cfg.FOMC_PRACTICA_HASTA):
+        return None, None
+    fuente = "practica de la Fed: 2:15 p.m. ET (ni el comunicado ni las minutas en HTML dicen la hora)"
+    if fecha.isoformat() in cfg.FOMC_HORA_CONFIRMADA_EN_PDF:
+        fuente += "; confirmada en el PDF de las minutas"
+    return tuple(cfg.FOMC_HORA_PRACTICA), fuente
+
+
 def fomc(cfg, repo):
     anuncios, excluidos, pendientes = [], [], []
     for anio in range(cfg.CALENDARIO_ANIOS[0], cfg.CALENDARIO_ANIOS[1] + 1):
@@ -248,6 +263,8 @@ def fomc(cfg, repo):
             if hora is None and url_minutas:
                 hora = hora_de_las_minutas(pagina(url_minutas, cfg, repo))
                 fuente_hora = "minutas de la reunion"
+            if hora is None:
+                hora, fuente_hora = hora_por_practica(fecha, cfg)
             if hora is None:
                 pendientes.append({"tipo": "fomc", "fecha_local": fecha.isoformat(),
                                    "motivo": "ni el comunicado ni las minutas dicen la hora",

@@ -351,3 +351,18 @@ def test_histdata_con_zona_lee_la_hora_de_nueva_york_con_horario_de_verano():
     with pytest.raises(Exception):
         formatos.histdata_m1(io.StringIO("20160313 023000;1.1;1.1;1.1;1.1;0\n"), 5,
                              zona="America/New_York")
+
+
+def test_los_meses_fuera_de_alineacion_quedan_fuera_de_la_replica_con_histdata():
+    idx = pd.DatetimeIndex(["2003-07-31 23:59", "2003-08-01 00:00", "2006-10-02 10:00"], tz="UTC")
+    tabla = pd.DataFrame([[1.1, 1.1, 1.1, 1.1, 0.0]] * 3, index=idx, columns=cargador.COLUMNAS_HISTDATA)
+    cfg = ayuda.cfg_prueba()
+    marcas = cargador.diagnostico(tabla, "histdata", cfg)
+    assert marcas["fuera_de_alineacion"].tolist() == [True, False, True]
+    assert not marcas["invalida"].any(), "fuera de alineacion no es lo mismo que invalida"
+    assert list(cargador.limpiar(tabla, "histdata", cfg).index) == [idx[1]]
+    assert len(cargador.limpiar_barras(tabla, "histdata", cfg)) == 3
+    # Dukascopy no se toca.
+    duka = _duka([[1.1, 1.1002, 1.0999, 1.1001, 1.1001, 1.1003, 1.1, 1.1002, 1.0, 1.0]])
+    duka.index = pd.DatetimeIndex(["2003-07-15 10:00"], tz="UTC")
+    assert len(cargador.limpiar(duka, "dukascopy", cfg)) == 1

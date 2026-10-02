@@ -243,7 +243,7 @@ def test_calidad_no_importa_resultados_nula_ni_inferencia():
 def test_ninguna_salida_de_calidad_trae_retornos_posteriores_ni_otros_tipos(cfg, repo):
     tablas = calidad.correr("2016-01-04", "2016-02-26", cfg=cfg, repo=repo)
     texto = calidad.informe(tablas, "2016-01-04", "2016-02-26", cfg, 0.0)
-    assert {"barras", "zona", "semanas", "rupturas", "extremos"} <= set(tablas)
+    assert {"barras", "zona", "zona_mensual", "semanas", "rupturas", "extremos"} <= set(tablas)
     patron = re.compile(r"^(ret|r_)|retorno|posterior", re.IGNORECASE)
     for nombre, tabla in tablas.items():
         assert not [c for c in tabla.columns if patron.search(str(c))], nombre
@@ -260,6 +260,8 @@ def test_con_el_mismo_bid_las_fuentes_coinciden_en_todo(cfg, repo):
     tablas = calidad.correr("2016-01-04", "2016-02-26", cfg=cfg, repo=repo)
     zona = tablas["zona"].iloc[0]
     assert zona["desfase_del_maximo"] == 0 and zona["correlacion_en_0"] == pytest.approx(1.0)
+    assert (tablas["zona_mensual"]["desfase_del_maximo"] == 0).all()
+    assert tablas["zona_mensual"]["coincide"].all()
     rup = tablas["rupturas"].iloc[0]
     assert rup["pct_acuerdo"] == 1.0 and rup["pct_misma_hora"] == 1.0
     assert rup["franjas_comparables"] > 100

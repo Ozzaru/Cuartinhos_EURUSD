@@ -117,3 +117,12 @@ def test_el_contacto_del_bls_solo_sale_de_la_variable_de_entorno(monkeypatch):
     # Ningun archivo del codigo trae una direccion de correo escrita.
     with open(os.path.join(RAIZ, "fuentes", "calendario.py"), encoding="utf-8") as f:
         assert "@" not in f.read()
+
+
+def test_practica_de_la_fed_antes_de_2009():
+    cfg = ayuda.cfg_prueba()
+    hora, fuente = calendario.hora_por_practica(dt.date(2004, 3, 16), cfg)
+    assert hora == (14, 15) and fuente.startswith("practica de la Fed")
+    hora, fuente = calendario.hora_por_practica(dt.date(2008, 6, 25), cfg)
+    assert hora == (14, 15) and "confirmada en el PDF" in fuente
+    assert calendario.hora_por_practica(dt.date(2009, 1, 28), cfg) == (None, None)
