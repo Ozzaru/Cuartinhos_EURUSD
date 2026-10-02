@@ -2394,3 +2394,143 @@ falla si se intenta leer el archivo); 309 pasan, 0 avisos.
 **Pendiente para el grupo.** El pre-registro (2.2 y 2.3) dice que el sellado
 no se descarga hasta la Etapa 5. Como se declara este incidente es decision
 del grupo (el pre-registro se edita en `main`, no en esta rama).
+
+### Paso 3: descarga completa, conversion y control de calidad (2026-10-01)
+
+**Registro de aperturas.** Se agrego la linea que completa la del incidente
+("complemento al incidente del 01-10-2026: ... Excel ...; ningun programa del
+proyecto los leyo"), 23:13:52 UTC.
+
+**Dukascopy (exportacion manual del grupo, 2003-05-04 a 2020-12-31).**
+- `EURUSD_1 Min_Bid_2003.05.04_2020.12.31.csv` (387.704.988 bytes) y
+  `EURUSD_1 Min_Ask_2003.05.04_2020.12.31.csv` (387.656.145 bytes), en el
+  manifiesto (el registro reviso antes el nombre: fecha final 2020-12-31).
+- **Primera pasada, solo horas, antes de interpretar un precio** (nuevo en el
+  cargador, `revisar_minutos_dukascopy`, con sus tests):
+  - ningun minuto desde el 2021-01-01: la primera barra es el 2003-05-04
+    21:00 UTC y la ultima el 2020-12-31 21:59 UTC (cierre de Nueva York; el
+    ano viene completo);
+  - Bid y Ask traen exactamente los mismos minutos todos los anos (0 minutos
+    en un solo lado); 6.619.380 filas por lado, sin repetidas;
+  - JForex trae todos los minutos de la semana de mercado (373.560 a 377.160
+    por ano completo): los feriados vienen como velas planas.
+- Los CSV del piloto se solapan con la exportacion completa en enero de 2016
+  y coinciden fila por fila (la conversion se habria detenido si no).
+- Conversion: 2 min 05 s; 18 parquet por ano. Anotada en `aperturas.md`
+  (lectura de calidad, conversion a parquet, 23:17:23 UTC, commit `8b25362`).
+
+**HistData.** 18 zip anuales (2003-2020), 51 MB, 414 s con pausas de 10 s,
+todos en el manifiesto. Conversion desde el 2003-05-04 (el primer dia de
+Dukascopy): 21 s, ningun minuto desde el 2021-01-01. Anotada en
+`aperturas.md` (23:28:07 UTC, commit `1cc5728`). HistData trae menos barras en
+los anos antiguos (300.000 a 358.000 por ano entre 2004 y 2011, contra
+~375.000 de Dukascopy): no rellena los minutos sin ticks.
+
+**Control de calidad completo** (`python -m fuentes.calidad --desde 2003-05-04
+--hasta 2020-12-31`; 216 s; `resultados/calidad.md` y sus CSV, no
+versionados). Las 8 lecturas de validacion (2017-2020, dos fuentes, con 3 dias
+de margen) quedaron en `aperturas.md` (23:32-23:33 UTC, commit `5d4e0b6`). Ese
+registro se commiteo (`5b4e3f5`).
+
+| chequeo | resultado | criterio |
+|---|---|---|
+| integridad | Dukascopy: 125 barras invalidas en 6.619.380 (todas en 2013, spread <= 0; 0,034%); 10.469 planas (pasan a faltantes). HistData: 0 invalidas | < 0,1%: **cumple** todos los anos |
+| **zona horaria** | maximo en **+60 minutos** todos los anos (2016: 0,54 en +60, 0,45 en 0); el barrido de +-15 h tambien da +60 | **FALLA** todos los anos |
+| apertura y cierre | Dukascopy: 5 de 920 semanas fuera de rango (feriados, un hueco en 2003); HistData: 44 de 916 | se listan |
+| huecos | > 60 min fuera del fin de semana: Dukascopy 20, HistData 125 (sobre todo 2004-2005) | informativo |
+| cobertura (sin la franja [18,24) del viernes) | Dukascopy 0%-1,4% de franjas bajo 0,90 por ano; HistData 11%-68% en 2003-2011, 0,6%-1,8% desde 2012 | informativo |
+| horario de verano | 35 franjas de 5 o 7 horas, todas en domingos de cambio del Reino Unido | **cumple** |
+| spread Dukascopy | mediana 1,0 pip hasta 2009, 0,3 desde 2013; mas ancho a las 21-22 UTC desde 2007; 716 barras con mas de 10 pips | informativo |
+| extremos por franja | mediana de la diferencia 0,0-0,2 pips desde 2015; 2-5 pips antes de 2010 (HistData mas alto) | informativo |
+| rupturas coincidentes | acuerdo 85,9%-94,7%; 7 anos entre 80% y 90% (2003-2006, 2008, 2009, 2011); a 2 minutos o menos solo 27%-45% | advertencia en 7 anos |
+
+**Causa de la falla de zona (diagnosticada con lo ya calculado, sin leer
+precios de nuevo).** La apertura del domingo de Dukascopy sigue a Nueva York
+todo el ano: 21:00 UTC en el verano de EE. UU. (559 semanas) y 22:00 en
+invierno (320). HistData, convertido con +5 h fijas, abre a las 22:00 UTC
+tambien en verano (526 de 555 semanas): la mediana de su apertura y su cierre
+queda 60 minutos tarde en verano, todos los anos. Los archivos de HistData
+estan en hora de Nueva York CON horario de verano, no en "EST fijo sin horario
+de verano" como dice su documentacion y como quedo escrito en el pre-registro
+(3.1) y en `decisiones_F.md` (b.4). El piloto de enero no podia verlo (enero
+es invierno).
+
+**No se cambio ninguna definicion.** La conversion oficial sigue en EST fijo.
+Se agrego `HISTDATA_ZONA` (por defecto None = EST fijo) solo para
+diagnosticar.
+
+**Diagnostico, solo desarrollo (2003-05-04 a 2016-12-31), en carpetas
+temporales** (`scratchpad`; no toca validacion ni deja lineas en el registro):
+HistData convertido con America/New_York.
+- Zona por ano: maximo en 0 en 2004-2016 (correlacion 0,45 a 0,99); 2003 en
+  +1 minuto (0,209 contra 0,198 en 0).
+- Zona por mes: 153 de 164 meses en 0; todos desde 2007. Los 11 que no:
+  mayo-julio de 2003 en -60 (esos meses HistData estaba en EST fijo),
+  octubre-diciembre de 2003, febrero, marzo y junio de 2004 en +1 o +2
+  minutos, noviembre de 2004 en -1, octubre de 2006 en +1.
+- Rupturas coincidentes: acuerdo de 91,0% a 99,8%, **todos los anos cumplen**
+  el 90%; a 2 minutos o menos, 59%-97%.
+- Extremos: 0,1-0,7 pips desde 2010; HistData sigue 2-5 pips mas alto antes de
+  2009 (su "bid" antiguo parece venir de otro proveedor; ademas viene con 4
+  decimales en 2003-2008 y 2010).
+
+**Calendario de anuncios** (`python -m fuentes.calendario`; 489 paginas
+oficiales guardadas en `Raw\Cuartinhos_EURUSD\calendario\` y registradas en
+el manifiesto; el contacto que pide el BLS se paso solo por la variable de
+entorno, no esta en ningun archivo):
+- `calendario/anuncios.csv`: 738 anuncios de 2003 a 2020. BLS: 12 de empleo
+  y 12 de IPC por ano. BCE: 12 por ano hasta 2014 y 8 desde 2015. Fed: 8 por
+  ano (7 en 2020, por la reunion cancelada de marzo). En validacion, 40 por
+  ano, como dice el pre-registro (4.8).
+- Horas: Fed, 39 del propio comunicado (14:00) y 75 de las minutas de la
+  reunion (44 a las 14:15, 23 a las 14:00 y 8 a las 12:30, las reuniones con
+  conferencia de prensa de 2011-2012); BLS, 8:30 ET, verificada en la linea de
+  embargo de 10 comunicados (primero de 2003, 2008, 2013 y 2018 de cada serie,
+  y los atrasados de octubre de 2013); BCE, 13:45 CET por la regla publicada
+  (el comunicado no dice su hora).
+- `calendario/excluidos.csv` (39): de la Fed, las conferencias telefonicas y
+  lo marcado "(unscheduled)", "(cancelled)" o "(notation vote)", y la
+  reunion del 15-09-2003, sin comunicado; del BCE, la decision del 08-10-2008
+  (recorte coordinado) y entradas de la lista que no son decisiones de
+  politica monetaria (TARGET2-Securities 2007; PEPP y operaciones de 2020).
+- Ajustes de lectura en el camino (ninguno cambia la lista cerrada):
+  comunicados del BLS en texto hasta 2007 y con enlace absoluto en 2019;
+  URL de la Fed con barra final o sufijo "b"; regla del BCE: es programada
+  si el comunicado dice "At today's meeting" o anuncia la conferencia de prensa
+  del dia (el dia de la semana no servia: varias reuniones programadas fueron
+  en miercoles).
+- **Pendientes (`calendario/pendientes.csv`, 29)**: 28 comunicados de la Fed de
+  2003 a junio de 2006 dicen "For immediate release" y sus minutas solo "to be
+  released shortly after the meeting"; el del 25-06-2008 tiene las minutas
+  solo en PDF. Todos de desarrollo. No entran a `anuncios.csv` hasta que el
+  grupo decida: no se adivina la hora.
+
+### Decisiones pendientes del grupo (paso 3 detenido)
+
+1. **Zona horaria de HistData** (falla un criterio de 3.3; no se cambio
+   ninguna definicion). Opciones:
+   - (a, recomendada) convertir HistData con la hora de Nueva York CON horario
+     de verano (`HISTDATA_ZONA = "America/New_York"`) y repetir la conversion
+     y el control de calidad completos. Es lo que el pre-registro manda para la
+     zona ("error de manejo: se corrige y se repite"), pero obliga a corregir
+     en `main` la frase de 3.1 ("EST fija ... sumando 5 horas"). Con el
+     diagnostico de desarrollo, la zona queda en 0 desde 2004 (todos los meses
+     desde 2007) y el acuerdo de rupturas pasa el 90% todos los anos. Quedan
+     11 meses de 2003-2006 con el maximo fuera de 0 (HistData antiguo), y 2003
+     como ano completo en +1 minuto: hay que decidir como se declaran.
+   - (b) mantener EST fijo y declarar la falla: la replica con HistData
+     quedaria corrida una hora en el verano de EE. UU.
+   - (c) desfase empirico por semana: da lo mismo que (a) con una regla ad hoc.
+2. **Hora de 29 comunicados de la Fed** (todos de desarrollo):
+   - (a, recomendada) 2:15 p.m. ET, la hora que la Fed uso en todas las
+     reuniones programadas desde que las minutas la registran (2006) hasta 2012,
+     rotulada en `fuente_hora` como practica de la Fed y no como dicha por la
+     fuente. El de 2008-06-25 puede leerse a mano en el PDF de sus minutas.
+   - (b) buscar la hora a mano en las transcripciones del FOMC (PDF).
+   - (c) dejarlos fuera: esos dias contarian como "sin anuncio" en desarrollo.
+3. **Push** de la rama: pendiente del OK del grupo (el paso 3 no termino).
+
+**Tests**: 323 pasan, 0 avisos. Ningun resultado posterior a eventos ni
+sostenidas o reingresos: el control de calidad solo uso rupturas (si hay,
+direccion y minuto), y el diagnostico, lo mismo, en carpetas temporales.
+`registro/aperturas.md` commiteado al cierre de la sesion.
